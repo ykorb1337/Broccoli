@@ -34,11 +34,23 @@ import Darwin
     func panel() async throws {
         try await wait("Native form panel did not appear") { self.d.window.attachedSheet != nil }
         try await waitJS("modal.open")
+        try await wait("Form is still drawing") {
+            !(self.d.window.attachedSheet?.contentView?.subviews.contains { $0.accessibilityIdentifier()=="HotTurkeyEditorRenderCover" } ?? true)
+        }
         try await pause()
     }
     func close() async throws {
+        NSApp.activate(ignoringOtherApps: true)
+        d.window.attachedSheet?.makeKeyAndOrderFront(nil)
         try await js("closeModal();")
-        try await wait("Form panel did not close") { self.d.window.attachedSheet == nil && self.d.web.window === self.d.window }
+        do {
+            try await wait("Form panel did not close") { self.d.window.attachedSheet == nil && self.d.web.window === self.d.window }
+            try await waitJS("!modal.open&&!document.documentElement.classList.contains('native-sheet')")
+            try await wait("Navigation did not resume") { self.d.appearance.canNavigate }
+        } catch {
+            let state=try await js("return JSON.stringify({open:modal.open,kind:modal.dataset.kind,view:document.body.dataset.view,focus:document.hasFocus()});")
+            throw fail("Form panel did not close: active=\(NSApp.isActive), state=\(state ?? "nil")")
+        }
     }
     func capture(_ name: String) async throws {
         let image: NSImage = try await withCheckedThrowingContinuation { continuation in
@@ -60,6 +72,7 @@ import Darwin
                 controls.every(el=>{const r=el.getBoundingClientRect();return r.left>=-1&&r.right<=innerWidth+1;});
         })()
         """#, name)
+        try await check("[...modal.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().width&&[...el.childNodes].some(node=>node.nodeType===Node.TEXT_NODE&&node.textContent.trim())).every(el=>parseFloat(getComputedStyle(el).fontSize)>=12)", name.replacingOccurrences(of: "_layout", with: "_readable_type"))
         try await check(#"""
         (()=>{
             const visible=[...modal.querySelectorAll('input,select,textarea')].filter(el=>el.getBoundingClientRect().width);
@@ -70,6 +83,8 @@ import Darwin
     }
     func run() async throws {
         try await wait("Application did not load") { self.d.nativeChromeInstalled && self.d.navigationFinished }
+        d.show()
+        try await wait("Test window did not activate") { NSApp.isActive && self.d.window.isKeyWindow }
         try await waitJS("Object.keys(categories).length>0")
         try await js("deviceWizard();")
         try await panel()
@@ -109,6 +124,8 @@ import Darwin
         for (profile, theme, scale) in [("light", "light", 100), ("dark", "dark", 100), ("dark-200", "dark", 200)] {
             try await js("await api('settings',{theme:'\(theme)',text_scale:\(scale)});await refresh(false);")
             for (name, setup, expected) in scenarios {
+                d.show()
+                try await wait("Test window did not activate") { NSApp.isActive && self.d.window.isKeyWindow }
                 try await js(setup); try await panel()
                 try await check(expected, "\(name)_\(profile)_state")
                 try await layout("\(name)_\(profile)_layout")
@@ -157,6 +174,14 @@ import Darwin
         try await js("deviceWizard();")
         try await panel(); try await check("document.querySelector('#device-word')===null&&!document.querySelector('#device-enabled').checked", "configured_recovery_word_state")
         try await capture("device-configured-light"); try await close()
+        try await js("window.__skipID=(await api('blocks/save',{block:{...newBlock(),name:'提前开始学习',enabled:true,websites:['skip.invalid'],break:{...newBlock().break,type:'text',custom_text:'focus'}}})).id;await api('blocks/lock',{id:window.__skipID,type:'timer',until:Date.now()/1000+3600});await api('blocks/break',{id:window.__skipID,answer:'focus'});await refresh(false);page='blocks';renderPage();")
+        try await waitJS("document.body.dataset.view==='blocks'&&Boolean(document.querySelector('[data-action=skip-break][data-id=\"'+window.__skipID+'\"]'))")
+        try await check("state.blocks.find(b=>b.id===window.__skipID).locked&&!state.blocks.find(b=>b.id===window.__skipID).blocking", "resting_locked_rule_has_skip_action")
+        try await capture("skip-break-before-light")
+        try await js("document.querySelector('[data-action=skip-break][data-id=\"'+window.__skipID+'\"]').click();")
+        try await waitJS("state.blocks.find(b=>b.id===window.__skipID).blocking")
+        try await check("state.blocks.find(b=>b.id===window.__skipID).locked&&state.blocks.find(b=>b.id===window.__skipID).enabled&&!document.querySelector('[data-action=skip-break][data-id=\"'+window.__skipID+'\"]')", "skip_click_restores_blocking_preserves_lock_and_removes_action")
+        try await capture("skip-break-after-light")
         try await js("await api('settings',{password:'fixture-auth-word'});await refresh();document.querySelector('nav [data-page=blocks]').click();")
         try await wait("Password protected menu stayed enabled") { !self.d.appearance.canCreate }
         try await check("!state.authenticated&&!document.querySelector('#header-actions [data-action=new]')", "password_protection_hides_new_controls")

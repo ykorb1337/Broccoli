@@ -197,13 +197,13 @@ final class FocusSidebar: NSViewController, NSTableViewDataSource, NSTableViewDe
         icon.heightAnchor.constraint(equalToConstant: 30).isActive = true
         let name = NSTextField(labelWithString: "HotTurkey"); name.font = .systemFont(ofSize: 16, weight: .semibold)
         let brand = NSStackView(views: [icon, name]); brand.spacing = 9
-        connection.font = .systemFont(ofSize: 11); connection.textColor = .secondaryLabelColor
+        connection.font = .systemFont(ofSize: 12); connection.textColor = .secondaryLabelColor
         connection.lineBreakMode = .byTruncatingTail
         let emergency = NSButton(title: "紧急放行设备限制", target: self, action: #selector(emergencyAction))
-        emergency.bezelStyle = .inline; emergency.font = .systemFont(ofSize: 11)
+        emergency.bezelStyle = .inline; emergency.font = .systemFont(ofSize: 12)
         emergency.contentTintColor = .secondaryLabelColor
         let setup = NSButton(title: "浏览器与安装说明", target: self, action: #selector(setupAction))
-        setup.bezelStyle = .inline; setup.font = .systemFont(ofSize: 11); setup.contentTintColor = .secondaryLabelColor
+        setup.bezelStyle = .inline; setup.font = .systemFont(ofSize: 12); setup.contentTintColor = .secondaryLabelColor
         let bottom = NSStackView(views: [connection, emergency, setup])
         bottom.orientation = .vertical; bottom.alignment = .leading; bottom.spacing = 10
         for child in [brand, scroll, bottom] { child.translatesAutoresizingMaskIntoConstraints = false; view.addSubview(child) }

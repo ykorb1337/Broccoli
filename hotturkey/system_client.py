@@ -16,7 +16,7 @@ ROUTES={'state':'snapshot','auth':'authenticate','export':'export','import':'imp
         'device/recover':'device-recover','device/configure-recovery':'configure-device-recovery',
         'categories':'categories','users':'users','settings':'settings','check':'check',
         'statistics':'statistics','statistics/export':'statistics-export','statistics/clear':'statistics-clear',
-        **{'blocks/'+name:name for name in ['save','add-targets','reset-pomodoro','delete','toggle','lock','unlock','break','duplicate']}}
+        **{'blocks/'+name:name for name in ['save','add-targets','reset-pomodoro','skip-break','delete','toggle','lock','unlock','break','duplicate']}}
 
 
 class SystemClient:

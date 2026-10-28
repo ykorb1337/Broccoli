@@ -244,6 +244,83 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(self.check())
         result=self.engine.reset_pomodoro(b['id'])
         self.assertTrue(result['blocking']);self.assertEqual(result['break_status']['remaining'],60)
+    def test_skip_pomodoro_break_preserves_policy_lock_and_usage(self):
+        b=self.make(**{'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}})
+        self.engine.set_lock(b['id'],{'type':'timer','until':self.clock.value+3600})
+        self.store.charge(self.clock.value,b['id'],25)
+        before=copy.deepcopy(b);started=self.engine.runtime(b)['started']
+        self.clock.advance(70);result=self.engine.skip_break(b['id'])
+        self.assertTrue(result['blocking']);self.assertEqual(result['break_status']['remaining'],60)
+        self.assertEqual(b,before);self.assertEqual(self.engine.runtime(b)['started'],started)
+        self.assertEqual(self.store.used(b['id'],0),25)
+        unchanged=copy.deepcopy(self.store.state)
+        self.raises(self.engine.skip_break,b['id']);self.assertEqual(self.store.state,unchanged)
+        self.clock.advance(60);self.assertTrue(self.engine.break_state(b)['allowed'])
+
+    def test_skip_scheduled_pomodoro_uses_effective_interval_and_expires_next_slot(self):
+        b=self.make(mode='scheduled',schedule=[{'days':[0],'start':540,'end':600,'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}},
+             {'days':[0],'start':660,'end':720,'break':{'type':'pomodoro','work_minutes':2,'break_minutes':1}}])
+        before=copy.deepcopy(b)
+        self.clock.advance(70);result=self.engine.skip_break(b['id'])
+        self.assertEqual(result['break_status']['remaining'],60);self.assertTrue(result['blocking'])
+        self.assertEqual(b,before)
+        self.clock.advance(7200-70+130)
+        self.assertTrue(self.engine.break_state(b)['allowed'])
+        result=self.engine.skip_break(b['id']);self.assertEqual(result['break_status']['remaining'],120)
+        self.clock.advance(7*86400-130)
+        self.assertFalse(self.engine.break_state(b)['allowed']);self.assertEqual(self.engine.break_state(b)['remaining'],120)
+
+    def test_skip_scheduled_break_does_not_extend_interval(self):
+        b=self.make(mode='scheduled',schedule=[{'days':[0],'start':540,'end':542,'break':{'type':'pomodoro','work_minutes':1,'break_minutes':2}}])
+        self.clock.advance(100);self.engine.skip_break(b['id'])
+        self.clock.advance(20);self.assertFalse(self.engine.active(b))
+        self.raises(self.engine.skip_break,b['id'])
+
+    def test_skip_text_and_delay_breaks_requires_fresh_challenge_or_wait(self):
+        for typ in ['text','delay']:
+            b=self.make(name=typ,**{'break':{'type':typ,'custom_text':'focus','delay_minutes':1,'break_minutes':5}})
+            if typ=='text':self.engine.request_break(b['id'],{'answer':'focus'})
+            else:
+                self.engine.request_break(b['id'],{});self.clock.advance(60);self.engine.request_break(b['id'],{})
+            self.assertTrue(self.engine.break_state(b)['allowed'])
+            before=copy.deepcopy(b);self.engine.skip_break(b['id'])
+            self.assertEqual(b,before);self.assertTrue(self.engine.status(b)['blocking'])
+            if typ=='text':self.assertEqual(self.engine.request_break(b['id'],{})['challenge'],'focus')
+            else:self.assertEqual(self.engine.request_break(b['id'],{})['ready_at'],self.clock.value+60)
+
+    def test_skip_break_rejects_device_allowance_waiting_paused_and_work(self):
+        for name,kw in [('work',{'break':{'type':'pomodoro'}}),('waiting',{'break':{'type':'delay'}}),
+                        ('allowance',{'break':{'type':'allowance'}}),('paused',{'enabled':False,'break':{'type':'text'}}),
+                        ('device',{'device':'lock','device_minutes':5,'confirm_device':True,'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}})]:
+            b=self.make(name=name,**kw)
+            if name=='waiting':self.engine.request_break(b['id'],{})
+            if name=='device':self.clock.advance(70)
+            before=copy.deepcopy(self.store.state);self.raises(self.engine.skip_break,b['id']);self.assertEqual(self.store.state,before)
+
+    def test_skip_cross_midnight_schedule_keeps_the_same_interval_anchor(self):
+        b=self.make(mode='scheduled',schedule=[{'days':[0],'start':1439,'end':60,'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}}])
+        self.clock.advance(15*3600+10);self.assertTrue(self.engine.break_state(b)['allowed'])
+        result=self.engine.skip_break(b['id']);self.assertEqual(result['break_status']['remaining'],60)
+        self.clock.advance(50);self.assertFalse(self.engine.break_state(b)['allowed'])
+        self.assertEqual(self.engine.break_state(b)['remaining'],10)
+        self.clock.advance(10);self.assertTrue(self.engine.break_state(b)['allowed'])
+
+    def test_skip_text_break_with_independent_schedule_settings(self):
+        b=self.make(mode='scheduled',schedule=[{'days':[0],'start':540,'end':600,'break':{'type':'text','custom_text':'study'}}])
+        self.engine.request_break(b['id'],{'answer':'study'})
+        result=self.engine.skip_break(b['id'])
+        self.assertTrue(result['blocking']);self.assertEqual(result['break_status']['type'],'text')
+        self.assertEqual(self.engine.request_break(b['id'],{})['challenge'],'study')
+
+    def test_skipped_pomodoro_persists_across_restart(self):
+        b=self.make(**{'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}})
+        self.clock.advance(70);self.engine.skip_break(b['id']);self.clock.advance(10)
+        other=Store(self.temp.name)
+        try:
+            e=Engine(other,self.clock.wall,self.clock.monotonic,'boot-1','alice')
+            self.assertEqual(e.break_state(e.find(b['id']))['remaining'],50)
+        finally:other.db.close()
+
     def consume(self,seconds,source="tab1",**kw):
         data={"url":"https://example.com","active":True,**kw};self.engine.usage(data,source)
         for _ in range(seconds//5):self.clock.advance(5);self.engine.usage(data,source)

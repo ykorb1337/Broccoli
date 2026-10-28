@@ -89,6 +89,17 @@ class ServiceTests(unittest.TestCase):
         reset=self.call('blocks/reset-pomodoro',{'id':b['id']});self.assertTrue(reset['locked']);self.assertTrue(reset['blocking'])
         extended=self.call('blocks/lock',{'id':b['id'],'type':'text','length':20})
         self.assertTrue(extended['lock']['text'].startswith(old));self.assertEqual(len(extended['lock']['text']),20)
+    def test_skip_break_restores_locked_rule_and_requires_auth(self):
+        b=self.block(**{'break':{'type':'text','custom_text':'focus'}})
+        locked=self.call('blocks/lock',{'id':b['id'],'type':'timer','until':self.service.engine.now()+3600})
+        self.call('blocks/break',{'id':b['id'],'answer':'focus'})
+        self.call('settings',{'password':'secret'})
+        self.assertEqual(self.request('/api/blocks/skip-break',{'id':b['id']})[0],400)
+        self.session=self.call('auth',{'password':'secret'})['session']
+        result=self.call('blocks/skip-break',{'id':b['id']})
+        self.assertTrue(result['blocking']);self.assertTrue(result['locked']);self.assertEqual(result['lock'],locked['lock'])
+        self.assertEqual(self.request('/api/blocks/skip-break',{'id':b['id']})[0],400)
+
     def test_locked_additions_enforced_and_cannot_change_other_fields(self):
         b=self.block();lock=self.call('blocks/lock',{'id':b['id'],'type':'timer','until':self.service.engine.now()+60})['lock']
         result=self.call('blocks/add-targets',{'id':b['id'],'websites':['new.example'],'applications':['bundle:new.app'],'exceptions':['*.*'],'enabled':False,'lock':{'type':'none'}})

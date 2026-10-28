@@ -27,10 +27,10 @@ INSTALL=Path('/Library/PrivilegedHelperTools/local.hotturkey')
 CONFIG=INSTALL/'authority.json'
 DATA=Path('/private/var/db/local.hotturkey')
 SOCKET=Path('/private/var/run/local.hotturkey/control.sock')
-MANAGEMENT={'save','add-targets','reset-pomodoro','delete','toggle','lock','unlock'}
+MANAGEMENT={'save','add-targets','reset-pomodoro','skip-break','delete','toggle','lock','unlock'}
 MANAGEMENT_FIELDS={
     'save':{'id','block'},'add-targets':{'id','websites','applications'},
-    'reset-pomodoro':{'id'},'delete':{'id'},'toggle':{'id','enabled','confirm_device'},
+    'reset-pomodoro':{'id'},'skip-break':{'id'},'delete':{'id'},'toggle':{'id','enabled','confirm_device'},
     'lock':{'id','type','until','password','text_mode','custom_text','length','minutes','schedule','allow_inside','before_minutes'},
     'unlock':{'id','answer'},
 }

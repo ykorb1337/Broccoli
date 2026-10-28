@@ -23,6 +23,8 @@ def validate_proof(proof):
     required={f'{page}_{mode}_layout' for page in ['overview','blocks','schedule','statistics','settings']
               for mode in ['light','dark','dark_200']}
     required.update({f'{page}_{mode}_input_labels' for page in ['overview','blocks','schedule','statistics','settings'] for mode in ['light','dark','dark_200']})
+    required.update({f'{page}_{mode}_readable_type' for page in ['overview','blocks','schedule','statistics','settings'] for mode in ['light','dark','dark_200']})
+    required.update({f'{page}_secondary_text_{mode}_contrast' for page in ['overview','blocks','schedule','statistics','settings'] for mode in ['light','dark','dark_200']})
     required.update(['calendar_events_readable_and_keyboard_focusable','all_eight_lock_methods_render','compact_lock_sheet','confirmation_attached_to_editor',
         'draft_retained_across_tabs','editor_name_focused','file_picker_attached_to_editor','inactive_rule_saved',
         'large_text_actions_visible','large_text_sheet_bounded','lock_sheet_dark_large_text_controls_visible',
@@ -40,7 +42,8 @@ def validate_proof(proof):
 
 def validate_forms_proof(proof):
     required={f'{name}_{profile}_{kind}' for name in ['device','schedule','break-sessions','break-text','import','sources','category','emergency','recovery','settings-password','challenge','setup','locked-additions','authentication']
-              for profile in ['light','dark','dark-200'] for kind in ['state','layout','label_associations']}
+              for profile in ['light','dark','dark-200'] for kind in ['state','layout','label_associations','readable_type']}
+    required.update(['resting_locked_rule_has_skip_action','skip_click_restores_blocking_preserves_lock_and_removes_action'])
     required.update(['source_selection_restores_keyboard_focus','native_cancel_returns_to_editor_draft',
         'nested_cancel_keeps_native_sheet','return_saves_ordinary_editor','all_seven_break_forms_render','segmented_arrow_navigation_retains_focus',
         'schedule_validation_error','validation_scrolls_error_into_view','return_does_not_save_device_plan',
@@ -121,6 +124,7 @@ def main():
             subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(app)],check=True,capture_output=True)
             command=['/usr/bin/open','-W','-n','-a',str(app),'--args',str(directory)] if args.files else [str(executable),str(directory)]
             result=subprocess.run(command,capture_output=True,text=True,timeout=560 if args.files else 100)
+            (ROOT/'build'/f'native-{kind}-process.log').write_text(result.stderr[-6000:]+result.stdout[-2000:])
             desktop_log=service.store.directory/'desktop.log'
             if desktop_log.exists():shutil.copy2(desktop_log,ROOT/'build'/f'native-{kind}-desktop.log')
             if args.files:

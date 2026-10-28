@@ -22,7 +22,7 @@ vm.runInContext(source.slice(source.indexOf('function renderPage('),source.index
 vm.runInContext(source.slice(source.indexOf('async function action('),source.indexOf("document.addEventListener('click'")),context);
 let count=0;
 (async()=>{
- for(const a of ['new','edit','delete','toggle','add-targets','apply-lock','unlock','settings-password','import','clear-stats','install-backend']){
+ for(const a of ['new','edit','skip-break','delete','toggle','add-targets','apply-lock','unlock','settings-password','import','clear-stats','install-backend']){
   await assert.rejects(()=>context.action(a,{dataset:{id:'x'}}),/管理账户/);
  }
  assert.equal(calls.length,0);count++;
@@ -39,7 +39,14 @@ let count=0;
  context.state.can_manage=true;context.page='blocks';context.renderPage();assert(element('#content').innerHTML.includes('设置已受密码保护'));count++;
  context.state.authenticated=true;context.renderPage();assert.equal(rendered.at(-1),'blocks');
  const managed=context.blockCard(block);assert(managed.includes('data-action="edit"'));assert(managed.includes('role="switch"'));count++;
+ const resting={...block,break:{type:'pomodoro'},break_status:{type:'pomodoro',allowed:true},mode:'scheduled',blocking:false};
+ assert(context.blockCard(resting).includes('data-action="skip-break"'));
+ assert(!context.blockCard({...resting,device:'sleep'}).includes('data-action="skip-break"'));
+ assert(!context.blockCard({...resting,break_status:{type:'pomodoro',allowed:false}}).includes('data-action="skip-break"'));
+ for(const type of ['text','delay'])assert(context.blockCard({...resting,break_status:{type,allowed:true}}).includes('data-action="skip-break"'));
+ await context.action('skip-break',{dataset:{id:'x'}});assert.equal(calls.at(-1).path,'blocks/skip-break');count++;
  context.state.can_manage=false;
+ assert(!context.blockCard(resting).includes('data-action="skip-break"'));
  vm.runInContext(source.slice(source.indexOf('function renderBlocks('),source.indexOf('function renderCalendar(')),context);context.renderBlocks();
  assert(!element('#content').innerHTML.includes('data-action="import"'));assert(!element('#content').innerHTML.includes('data-action="new"'));count++;
  vm.runInContext(source.match(/function renderCalendar\([^\n]+/)[0],context);context.renderCalendar();assert(!element('#content').innerHTML.includes('data-action="calendar-add"'));count++;

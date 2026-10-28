@@ -60,7 +60,11 @@ class AccountStore:
         if start and 'pomodoro_started' in start:
             if runtime.get('pomodoro_started')!=start['pomodoro_started']:runtime.pop('break_until',None)
             runtime['pomodoro_started']=start['pomodoro_started']
-        elif start:runtime.pop('pomodoro_started',None)
+            if 'pomodoro_interval_start' in start:runtime['pomodoro_interval_start']=start['pomodoro_interval_start']
+            else:runtime.pop('pomodoro_interval_start',None)
+        elif start:
+            runtime.pop('pomodoro_started',None)
+            runtime.pop('pomodoro_interval_start',None)
         return runtime
 
     def block_started(self, block, now):
@@ -74,10 +78,12 @@ class AccountStore:
         start=self.core.state['block_starts'].get(block['id'])
         if start is not None:start['device_until']=until
 
-    def pomodoro_reset(self, block, now):
+    def pomodoro_reset(self, block, now, interval_start=None):
         runtime=self.context['runtime'][block['id']]
         start=self.core.state['block_starts'].setdefault(block['id'],{'at':runtime['started'],'generation':1})
         start['pomodoro_started']=now
+        if interval_start is not None:start['pomodoro_interval_start']=interval_start
+        else:start.pop('pomodoro_interval_start',None)
 
     def autostart_runtime(self, block):
         return self.core.state['autostarts'].setdefault(block['id'],{})
@@ -154,6 +160,7 @@ class PolicyAuthority:
                         start={'at':runtime['started'],'generation':1}
                         if 'device_until' in runtime:start['device_until']=runtime['device_until']
                         if 'pomodoro_started' in runtime:start['pomodoro_started']=runtime['pomodoro_started']
+                        if 'pomodoro_interval_start' in runtime:start['pomodoro_interval_start']=runtime['pomodoro_interval_start']
                         state['block_starts'][block['id']]=start
                     state['autostarts'][block['id']]={key:runtime[key] for key in ['once_fired','daily_fired','schedule_fired'] if key in runtime}
                 # Preserve already-spent allowances for the installing account.
@@ -227,6 +234,7 @@ class PolicyAuthority:
             if operation=='save':return engine.save_block(data['block'],data.get('id'))
             if operation=='add-targets':return engine.add_targets(data['id'],data.get('websites'),data.get('applications'))
             if operation=='reset-pomodoro':return engine.reset_pomodoro(data['id'])
+            if operation=='skip-break':return engine.skip_break(data['id'])
             if operation=='delete':engine.delete(data['id']);return {'ok':True}
             if operation=='toggle':return engine.toggle(data['id'],data.get('enabled'),data.get('confirm_device',False))
             if operation=='lock':return engine.set_lock(data['id'],data)

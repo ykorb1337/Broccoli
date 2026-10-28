@@ -130,6 +130,22 @@ class AuthorityTests(unittest.TestCase):
         self.authority.manage(501,'toggle',{'id':block['id'],'enabled':True})
         self.assertNotIn('pomodoro_started',self.bob.runtime(block))
 
+    def test_skip_scheduled_pomodoro_is_shared_and_requires_controller(self):
+        block=self.block(mode='scheduled',schedule=[{'days':[0],'start':540,'end':600,'break':{'type':'pomodoro','work_minutes':1,'break_minutes':1}}])
+        self.clock.advance(70);self.assertTrue(self.bob.break_state(block)['allowed'])
+        with self.assertRaises(PolicyError):self.authority.manage(502,'skip-break',{'id':block['id']})
+        self.authority.manage(501,'skip-break',{'id':block['id']})
+        self.assertFalse(self.bob.break_state(block)['allowed']);self.assertEqual(self.bob.break_state(block)['remaining'],60)
+        self.authority.manage(501,'toggle',{'id':block['id'],'enabled':False})
+        self.authority.manage(501,'toggle',{'id':block['id'],'enabled':True})
+        self.assertNotIn('pomodoro_interval_start',self.bob.runtime(block))
+
+    def test_skip_text_break_does_not_clear_another_accounts_break(self):
+        block=self.block(**{'break':{'type':'text','custom_text':'focus'}})
+        for engine in [self.alice,self.bob]:engine.request_break(block['id'],{'answer':'focus'})
+        self.authority.manage(501,'skip-break',{'id':block['id']})
+        self.assertFalse(self.alice.break_state(block)['allowed']);self.assertTrue(self.bob.break_state(block)['allowed'])
+
     def test_daily_autostart_occurs_once_across_accounts(self):
         block=self.block(enabled=False,autostart={'type':'daily','minute':540,'days':[0]})
         self.alice.tick()

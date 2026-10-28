@@ -125,6 +125,7 @@ class Engine:
         rt=self.runtime(b)
         rt["started"]=self.now()
         rt.pop('pomodoro_started',None)
+        rt.pop('pomodoro_interval_start',None)
         if rt.get('device_emergency_until',0)<=self.now():rt.pop('device_emergency_until',None)
         if b["device"]!="none" and b["mode"]=="continuous":
             rt["device_until"]=self.now()+b.get("device_minutes",15)*60
@@ -154,6 +155,8 @@ class Engine:
             if b["mode"] == "continuous":
                 midnight=dt.datetime.fromtimestamp(now).replace(hour=0,minute=0,second=0,microsecond=0).timestamp()
                 start=max(start,midnight,rt.get('pomodoro_started',start))
+            elif rt.get('pomodoro_interval_start')==start:
+                start=max(start,rt.get('pomodoro_started',start))
             work, rest=br["work_minutes"]*60,br["break_minutes"]*60
             phase=(now-start)%(work+rest)
             allowed=phase>=work
@@ -269,8 +272,30 @@ class Engine:
             now=self.now()
             rt=self.runtime(b)
             rt['pomodoro_started']=now
+            rt.pop('pomodoro_interval_start',None)
             rt.pop('break_until',None)
             if hasattr(self.store,'pomodoro_reset'):self.store.pomodoro_reset(b,now)
+            self.store.save()
+            return self.status(b)
+
+    def skip_break(self,ident):
+        with self.store.lock:
+            b=self.find(ident)
+            if b['device']!='none':raise PolicyError('设备限制不能通过跳过休息解除')
+            if not self.active(b):raise PolicyError('该规则目前未生效')
+            interval=self.interval(b)
+            br=interval[2]
+            if br['type'] not in {'pomodoro','text','delay'}:raise PolicyError('该规则不支持跳过休息')
+            if not self.break_state(b)['allowed']:raise PolicyError('当前没有可跳过的休息')
+            now=self.now()
+            rt=self.runtime(b)
+            if br['type']=='pomodoro':
+                rt['pomodoro_started']=now
+                if b['mode']=='scheduled':rt['pomodoro_interval_start']=interval[0]
+                else:rt.pop('pomodoro_interval_start',None)
+                if hasattr(self.store,'pomodoro_reset'):
+                    self.store.pomodoro_reset(b,now,interval[0] if b['mode']=='scheduled' else None)
+            for key in ['break_until','break_ready','break_text']:rt.pop(key,None)
             self.store.save()
             return self.status(b)
 

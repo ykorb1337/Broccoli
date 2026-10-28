@@ -215,6 +215,7 @@ class Service:
                 if path=="/api/blocks/save": return e.save_block(data["block"],data.get("id"))
                 if path=="/api/blocks/add-targets": return e.add_targets(data["id"],data.get("websites"),data.get("applications"))
                 if path=="/api/blocks/reset-pomodoro": return e.reset_pomodoro(data['id'])
+                if path=="/api/blocks/skip-break": return e.skip_break(data['id'])
                 if path=="/api/blocks/delete": e.delete(data["id"]); return {"ok":True}
                 if path=="/api/blocks/toggle": return e.toggle(data["id"],data.get("enabled"),data.get("confirm_device",False))
                 if path=="/api/blocks/duplicate":

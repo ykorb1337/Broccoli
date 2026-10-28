@@ -49,7 +49,11 @@ final class DesktopStyle {
             let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             let values: [String: NSColor] = [
                 "--bg": .windowBackgroundColor, "--panel": .controlBackgroundColor,
-                "--ink": .labelColor, "--muted": contrast ? .labelColor.withAlphaComponent(0.8) : .secondaryLabelColor,
+                "--ink": .labelColor,
+                // Opaque secondary text stays readable on cards and window surfaces.
+                "--muted": NSColor.labelColor.withAlphaComponent(1).blended(
+                    withFraction: contrast ? 0.15 : 0.35,
+                    of: .controlBackgroundColor.withAlphaComponent(1)) ?? .labelColor,
                 "--line": contrast ? .labelColor.withAlphaComponent(0.4) : .separatorColor,
                 "--accent": .controlAccentColor, "--tint": .controlAccentColor.withAlphaComponent(0.12),
                 "--field": .quaternaryLabelColor, "--hover": .quaternaryLabelColor,

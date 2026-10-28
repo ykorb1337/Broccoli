@@ -19,12 +19,17 @@ final class InterfaceQA {
   const rgba=text=>{const n=text.match(/[\d.]+/g)?.map(Number);return n&&n.length>=3?[...n.slice(0,3),n[3]??1]:null;};
   const blend=(top,bottom)=>top.slice(0,3).map((v,i)=>v*top[3]+bottom[i]*(1-top[3]));
   const light=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((v,c,i)=>v+c*[.2126,.7152,.0722][i],0);
-  const results=[...document.querySelectorAll('.tag.green,.tag.orange')].map(tag=>{
-   const style=getComputedStyle(tag),parent=getComputedStyle(tag.closest('.card'));
-   const panel=rgba(parent.backgroundColor),fill=rgba(style.backgroundColor),ink=rgba(style.color);
-   if(!panel||!fill||!ink)return false;
-   const bg=blend(fill,panel),fg=blend(ink,bg),a=light(bg),b=light(fg);
-   return {ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),ink:style.color,fill:style.backgroundColor,panel:parent.backgroundColor};
+  const background=element=>{
+   let rgb=[255,255,255];
+   const ancestors=[];for(let node=element;node;node=node.parentElement)ancestors.unshift(node);
+   for(const node of ancestors){const color=rgba(getComputedStyle(node).backgroundColor);if(color)rgb=blend(color,rgb);}
+   return rgb;
+  };
+  const results=[...document.querySelectorAll('.tag,.card p,.card-detail,.rule-group h2,.metric label,.metric small,.section-head small,.settings-row p,.settings-group h2,.time-header,.time-labels span,.chart-value,.day-bar span,.help,.tiny')].filter(el=>el.textContent.trim()&&el.getBoundingClientRect().width).map(element=>{
+   const style=getComputedStyle(element),ink=rgba(style.color),bg=background(element);
+   if(!ink)return false;
+   const fg=blend(ink,bg),a=light(bg),b=light(fg);
+   return {selector:element.className||element.tagName,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),ink:style.color,background:bg};
   });
   window.__interfaceContrast=results;
   return results.every(value=>value&&value.ratio>=4.5);
@@ -258,15 +263,20 @@ final class InterfaceQA {
      self.checks["\(page)_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_layout"]=true
      if page=="schedule" {self.checks["calendar_events_readable_and_keyboard_focusable"]=true}
      self.checks["\(page)_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_input_labels"]=true
+     self.js("JSON.stringify([...document.querySelectorAll('#content *')].filter(el=>el.getBoundingClientRect().width&&[...el.childNodes].some(node=>node.nodeType===Node.TEXT_NODE&&node.textContent.trim())&&parseFloat(getComputedStyle(el).fontSize)<12).map(el=>({tag:el.tagName,class:el.className,size:getComputedStyle(el).fontSize})))") {value in
+      guard value as? String == "[]" else{self.finish("Component text below 12px: \(page): \(value ?? "nil")");return}
+      self.checks["\(page)_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_readable_type"]=true
      self.js(Self.statusContrast){value in
       guard value as? Bool == true else{
        self.js("JSON.stringify(window.__interfaceContrast)"){value in self.finish("Status text contrast below 4.5:1: \(page): \(value ?? "nil")")};return
       }
+      self.checks["\(page)_secondary_text_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_contrast"]=true
       if page=="overview" {self.checks["status_text_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_contrast"]=true}
       self.busy=true
       self.snapshot("Interface-\(page)-\(self.darkPages ? "dark":"light")\(self.largePages ? "-200":"")") {
        self.pageIndex+=1;self.busy=false
       }
+     }
      }
     }
    }

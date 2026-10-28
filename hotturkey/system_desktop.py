@@ -22,7 +22,7 @@ from .documents import MAX_DOCUMENT
 LOG=logging.getLogger('hotturkey')
 GET={'state','categories','export','statistics','statistics/export','users','apps'}
 POST={'auth','import','settings','statistics/clear','check','device/recover','device/configure-recovery',
-      *('blocks/'+name for name in ['save','add-targets','reset-pomodoro','delete','toggle','lock','unlock','break','duplicate'])}
+      *('blocks/'+name for name in ['save','add-targets','reset-pomodoro','skip-break','delete','toggle','lock','unlock','break','duplicate'])}
 
 
 def desktop_directory(directory):return Path(directory)/'system-desktop'

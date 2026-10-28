@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Increase component text sizes and secondary text contrast, including rule
+  summaries, status badges, timestamps, forms and calendar events. Use opaque
+  secondary text in the native palette and preserve the existing theme setting.
+- Add “Skip this break” while a Pomodoro, text or delay break is active. Resume
+  blocking immediately; Pomodoro starts a full work period within the current
+  schedule interval. Preserve locks, schedule boundaries and spent allowances.
+
 - Consolidate rule and sleep-plan creation into the toolbar's plus menu with
   explicit labels and a bed symbol. Group website/application rules and sleep
   plans under separate headings; keep searching across all groups and preserve
