@@ -103,7 +103,7 @@ class Service:
                     return self.respond(200,value)
                 if self.command!="GET": return self.respond(405,{"error":"Method not allowed"})
                 path="index.html" if parsed.path=="/" else parsed.path.lstrip("/")
-                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","text-size.js":"application/javascript","style.css":"text/css","icon.svg":"image/svg+xml"}
+                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","text-size.js":"application/javascript","appearance.js":"application/javascript","style.css":"text/css","icon.svg":"image/svg+xml"}
                 if path not in allowed: return self.respond(404,{"error":"Not found"})
                 return self.respond(200,(ROOT/"web"/path).read_bytes(),allowed[path])
             def do_GET(self):

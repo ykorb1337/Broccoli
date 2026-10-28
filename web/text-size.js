@@ -7,7 +7,9 @@ window.HotTurkeyTextSize=(()=>{
   scale=value;const root=document.documentElement,width=window.innerWidth/(value/100),height=window.innerHeight/(value/100);
   document.body.style.zoom=String(value/100);document.body.style.width=width+'px';root.style.setProperty('--ui-width',width+'px');root.style.setProperty('--ui-height',height+'px');
   root.classList.toggle('ui-medium',width<=1050);root.classList.toggle('ui-compact',width<=760);
+  root.classList.toggle('ui-narrow',width<=520);
   const control=document.querySelector('#text-scale');if(control)control.value=String(value);
+  document.dispatchEvent(new Event('hotturkey:text-size'));
  }
  async function persist(){
   if(saving)return;saving=true;
@@ -32,5 +34,5 @@ window.HotTurkeyTextSize=(()=>{
  },{passive:false});
  document.addEventListener('auxclick',event=>{if(event.button===1&&(event.metaKey||event.ctrlKey)){event.preventDefault();change(100);}});
  document.addEventListener('change',event=>{if(event.target.id==='text-scale')change(Number(event.target.value));});
- return {configure(options){save=options.save;notify=options.notify||notify;},sync(value){if(!saving&&pending===null&&valid(value)){saved=value;apply(value);}},get value(){return scale;}};
+ return {configure(options){save=options.save;notify=options.notify||notify;},sync(value){if(!saving&&pending===null&&valid(value)){saved=value;apply(value);}},increase(){step(1);},decrease(){step(-1);},reset(){change(100);},get value(){return scale;}};
 })();

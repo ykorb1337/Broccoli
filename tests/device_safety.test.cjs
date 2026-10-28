@@ -7,9 +7,10 @@ const context={state:{authenticated:true,settings:{device_recovery_hash:false},b
  api:async(path,data)=>{calls.push({path,data});if(path==='device/configure-recovery')context.state.settings.device_recovery_hash=true;return {until:1000};},
  refresh:async()=>{},closeModal:()=>{closed++;},toast:()=>{},confirm:()=>confirmation,
  newBlock:()=>({break:{type:'none'},websites:[]}),minute:value=>Number(value.split(':')[0])*60+Number(value.split(':')[1]),
- openModal:(title,body)=>{opened=body;},field:(title,body)=>title+body,btn:()=>'',dateTime:String,
+ esc:value=>String(value),openModal:(title,body)=>{opened=body;},field:(title,body)=>title+body,btn:()=>'',dateTime:String,
  hm:String,DAY:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],editorImport:null,page:'blocks'};
 vm.createContext(context);
+vm.runInContext(source.slice(source.indexOf('function sheetGroup('),source.indexOf('function deviceWizard(')),context);
 for(const name of ['canManage','allowedAction'])vm.runInContext(source.match(new RegExp(`function ${name}\\([^\\n]+`))[0],context);
 vm.runInContext(source.slice(source.indexOf('function deviceWizard('),source.indexOf('function theme(')),context);
 vm.runInContext(source.slice(source.indexOf('async function action('),source.indexOf("document.addEventListener('click'")),context);

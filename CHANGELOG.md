@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Keep the inherited WebKit frame covered while opening a native editor sheet.
+  Reveal the editor after animation frames and an updated WebKit snapshot;
+  retain the bounded fallback if rendering stalls. Exercise both toolbar plus
+  buttons, delayed frames, rapid reopening, dark appearance and large text.
+
+- Restyle the desktop with native AppKit sidebar and toolbar navigation,
+  system symbols, coordinated light/dark/system appearance, grouped content,
+  compact controls and segmented editors. Keep existing policy actions and
+  accept visual bridge messages only from the trusted local main frame.
+  Preserve the complete legacy interface when connected to older web assets.
+  Remove slogans, promotional subtitles and redundant instructions; retain
+  lock/device/recovery consequences where people make those decisions.
+
 - Assemble the fixed-target protected cutover driver: private credential
   approval and stopped-data rechecks, sealed staging with durability flushes,
   exact activation health, precommit restoration and postcommit continuation.

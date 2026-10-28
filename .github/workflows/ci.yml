@@ -25,11 +25,13 @@ jobs:
           node tests/tab_exceptions.test.cjs
           node tests/quick_add.test.cjs
           node tests/text_size.test.cjs
+          node tests/modal_keyboard.test.cjs
           node tests/document_transfers.test.cjs
           node tests/import_preview.test.cjs
           node tests/system_desktop.test.cjs
           node tests/device_safety.test.cjs
           node --check web/app.js
+          node --check web/appearance.js
       - name: Native build with verified bundled runtime
         run: python3 scripts/build.py --qa
       - name: Real signed peers and policy RPC

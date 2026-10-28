@@ -20,6 +20,10 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var installation: Process?
     var connectionPending = false
     var systemMode = false
+    let appearance = DesktopAppearance()
+    var nativeChromeInstalled = false
+    var fileDialogs: DesktopFiles!
+    private var desktopIconLoaded = false
     var activeOrigin: URL?
     let probeSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -28,6 +32,10 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     }()
     func applicationDidFinishLaunching(_ notification: Notification) {
         let resources = Bundle.main.resourceURL!
+        if let url=Bundle.main.url(forResource:"HotTurkey",withExtension:"icns"),let icon=NSImage(contentsOf:url),icon.isValid {
+            NSApp.applicationIconImage=icon
+            desktopIconLoaded=true
+        }
         base = resources.appendingPathComponent("project")
         if let override = Bundle.main.object(forInfoDictionaryKey:"HotTurkeyDataDirectory") as? String {
             dataDirectory = URL(fileURLWithPath:override)
@@ -37,6 +45,8 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         systemMode = CommandLine.arguments.contains("--system") || Bundle.main.object(forInfoDictionaryKey:"HotTurkeySystemMode") as? Bool == true
         if systemMode { dataDirectory = dataDirectory.appendingPathComponent("system-desktop") }
         try? FileManager.default.createDirectory(at:dataDirectory,withIntermediateDirectories:true)
+        if desktopIconLoaded { desktopLog("application icon loaded") }
+        appearance.sheetChanged = { [weak self] shown in self?.desktopLog(shown ? "editor sheet presented" : "editor sheet dismissed") }
         let menu = NSMenu()
         menu.addItem(withTitle:"打开 HotTurkey",action:#selector(show),keyEquivalent:"")
         menu.addItem(NSMenuItem.separator())
@@ -46,7 +56,11 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         status.button?.image = NSImage(systemSymbolName:"flame.fill",accessibilityDescription:"HotTurkey")
         status.menu = menu
         let config = WKWebViewConfiguration()
+#if QA_SHEET
+        config.websiteDataStore = .nonPersistent()
+#endif
         config.userContentController.add(self,name:"native")
+        config.userContentController.addUserScript(WKUserScript(source:"window.HotTurkeyNativeShell = true; window.HotTurkeyNativeSheets = true; document.addEventListener('DOMContentLoaded', () => document.documentElement.classList.add('native-shell'));",injectionTime:.atDocumentStart,forMainFrameOnly:true))
         web = WKWebView(frame:.zero,configuration:config)
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -54,6 +68,9 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         window.minSize = NSSize(width:920,height:650)
         window.title = "HotTurkey"
         window.contentView = web
+        fileDialogs = DesktopFiles(parent: { [weak self] in self?.appearance.presentationWindow ?? self?.window },
+                                   event: { [weak self] in self?.desktopLog($0) })
+        appearance.web = web
         loadingLabel = NSTextField(labelWithString:"正在连接本地后台…")
         loadingLabel.font = NSFont.systemFont(ofSize:17)
         loadingLabel.textColor = .secondaryLabelColor
@@ -152,6 +169,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         } else { FileManager.default.createFile(atPath:path.path,contents:data,attributes:[.posixPermissions:0o600]) }
     }
     func recoverNavigation(_ reason:String) {
+        appearance.cancelEditor()
         if navigationRecoveryPending { return }
         navigationGeneration += 1
         navigationRecoveries += 1
@@ -167,13 +185,14 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             self.connect()
         }
     }
-    func showError(_ text:String) { let alert = NSAlert(); alert.messageText = text; alert.beginSheetModal(for:window) { _ in } }
+    func showError(_ text:String) { let alert = NSAlert(); alert.messageText = text; alert.beginSheetModal(for:appearance.presentationWindow ?? window) { _ in } }
     @objc func show() {
         NSApp.setActivationPolicy(.regular); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true)
         if navigationRecoveries > 3 { navigationRecoveries = 0; connect() }
     }
     @objc func hide() { window.orderOut(nil) }
     @objc func quit() { NSApp.terminate(nil) }
+    @objc func showSettings() { show(); appearance.showPage("settings") }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows:Bool)->Bool { show(); return true }
     func trustedFrame(_ frame:WKFrameInfo)->Bool {
         guard frame.isMainFrame, let origin = activeOrigin else { return false }
@@ -181,6 +200,26 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard trustedFrame(message.frameInfo) else { return }
+        if let body = message.body as? [String:Any], body["op"] as? String == "present-editor" {
+            if nativeChromeInstalled { appearance.presentEditor() }
+            else { web.evaluateJavaScript("window.HotTurkeySheet?.fallback()") }
+            return
+        }
+        if let body = message.body as? [String:Any], body["op"] as? String == "cancel-editor" {
+            appearance.cancelEditor(); return
+        }
+        if let body = message.body as? [String:Any], body["op"] as? String == "appearance" {
+            // Older installed backends have no appearance bridge. Keep their
+            // existing complete web interface until matching assets are updated.
+            if !nativeChromeInstalled {
+                guard let page = body["page"] as? String, FocusSidebar.pages.contains(page), body["dark"] is Bool else { return }
+                appearance.install(in:window,web:web)
+                nativeChromeInstalled = true
+                desktopLog("native interface ready")
+            }
+            appearance.update(body)
+            return
+        }
         if let body = message.body as? [String:Any], body["op"] as? String == "install" {
             guard let data = try? Data(contentsOf:dataDirectory.appendingPathComponent("connection.json")),
                   let connection = (try? JSONSerialization.jsonObject(with:data)) as? [String:Any],
@@ -203,7 +242,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         if command == "notifications" { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
         if command == "pickApp" || command == "pickFolder" || command == "pickBinary" {
             let panel = NSOpenPanel(); panel.canChooseDirectories = command == "pickFolder"; panel.canChooseFiles = command != "pickFolder"; panel.allowsMultipleSelection = true
-            panel.beginSheetModal(for:window) { response in
+            panel.beginSheetModal(for:appearance.presentationWindow ?? window) { response in
                 if response == .OK {
                     let values = panel.urls.map { url -> String in
                         if command == "pickFolder" { return "folder:"+url.path }
@@ -257,6 +296,12 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     func webView(_ webView:WKWebView,decidePolicyFor navigationAction:WKNavigationAction,decisionHandler:@escaping(WKNavigationActionPolicy)->Void) {
         if navigationAction.request.url?.absoluteString == "about:blank" { decisionHandler(.allow); return }
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+        if navigationAction.shouldPerformDownload, trustedFrame(navigationAction.sourceFrame),
+           url.scheme == "blob", let origin = activeOrigin,
+           let resource = URL(string: String(url.absoluteString.dropFirst(5))),
+           resource.scheme == origin.scheme, resource.host == origin.host, resource.port == origin.port {
+            decisionHandler(.download); return
+        }
         if url.scheme == "http", url.host == activeOrigin?.host, url.port == activeOrigin?.port { decisionHandler(.allow); return }
         if ["https","http"].contains(url.scheme ?? ""), url.host != "127.0.0.1" { NSWorkspace.shared.open(url) }
         decisionHandler(.cancel)
@@ -284,13 +329,13 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     func webView(_ webView:WKWebView,runJavaScriptAlertPanelWithMessage message:String,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping()->Void) {
         guard trustedFrame(frame) else { completionHandler(); return }
         let alert = NSAlert(); alert.messageText = message; alert.addButton(withTitle:"确定")
-        alert.beginSheetModal(for:window) { _ in completionHandler() }
+        alert.beginSheetModal(for:appearance.presentationWindow ?? window) { _ in completionHandler() }
     }
     func webView(_ webView:WKWebView,runJavaScriptConfirmPanelWithMessage message:String,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping(Bool)->Void) {
         guard trustedFrame(frame) else { completionHandler(false); return }
         let alert = NSAlert(); alert.messageText = message; alert.alertStyle = .warning
         alert.addButton(withTitle:"确定"); alert.addButton(withTitle:"取消")
-        alert.beginSheetModal(for:window) { response in completionHandler(response == .alertFirstButtonReturn) }
+        alert.beginSheetModal(for:appearance.presentationWindow ?? window) { response in completionHandler(response == .alertFirstButtonReturn) }
     }
     func webView(_ webView:WKWebView,runJavaScriptTextInputPanelWithPrompt prompt:String,defaultText:String?,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping(String?)->Void) {
         guard trustedFrame(frame) else { completionHandler(nil); return }
@@ -298,20 +343,20 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         let input = NSTextField(frame:NSRect(x:0,y:0,width:320,height:24)); input.stringValue = defaultText ?? ""
         alert.accessoryView = input; alert.window.initialFirstResponder = input
         alert.addButton(withTitle:"确定"); alert.addButton(withTitle:"取消")
-        alert.beginSheetModal(for:window) { response in completionHandler(response == .alertFirstButtonReturn ? input.stringValue : nil) }
+        alert.beginSheetModal(for:appearance.presentationWindow ?? window) { response in completionHandler(response == .alertFirstButtonReturn ? input.stringValue : nil) }
     }
     func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping(UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
 }
+#if !QA_SHEET
+@main
+enum DesktopApp {
+static func main() {
 let app = NSApplication.shared
 let delegate = Delegate()
 app.setActivationPolicy(.regular)
 app.delegate = delegate
-let menu = NSMenu(); let appItem = NSMenuItem(); menu.addItem(appItem)
-let appMenu = NSMenu(); appItem.submenu = appMenu
-appMenu.addItem(withTitle:"退出 HotTurkey 界面",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
-let fileItem = NSMenuItem(); menu.addItem(fileItem); let fileMenu = NSMenu(title:"文件"); fileItem.submenu = fileMenu
-fileMenu.addItem(withTitle:"关闭窗口",action:#selector(NSWindow.performClose(_:)),keyEquivalent:"w")
-let editItem = NSMenuItem(); menu.addItem(editItem); let editMenu = NSMenu(title:"编辑"); editItem.submenu = editMenu
-for (title,selector,key) in [("撤销","undo:","z"),("剪切","cut:","x"),("复制","copy:","c"),("粘贴","paste:","v"),("全选","selectAll:","a")] { editMenu.addItem(withTitle:title,action:Selector(selector),keyEquivalent:key) }
-app.mainMenu = menu
+DesktopMenu.install(delegate: delegate)
 app.run()
+}
+}
+#endif

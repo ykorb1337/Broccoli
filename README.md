@@ -2,8 +2,6 @@
 
 <img src="assets/icon.svg" width="96" height="96" alt="HotTurkey icon">
 
-**Cold focus. Open source.**
-
 An independent, open-source macOS focus blocker inspired by **Cold Turkey
 Blocker**. Block distracting websites and apps, schedule focused time, and keep
 your rules locked while still adding new distractions to the list. Native
@@ -166,7 +164,7 @@ node tests/tab_exceptions.test.cjs
 
 ## 实现结构
 
-`hotturkey/model.py` 验证配置，`engine.py` 实现策略与计时，`store.py` 保存状态和统计，`server.py` 为桌面与 CLI 提供本地接口。`native/Agent.swift` 负责 macOS 进程和设备动作，`native/Desktop.swift` 提供原生窗口、菜单栏和文件选择。`extension` 通过 Native Messaging 获取策略；普通域名使用浏览器网络规则，复杂路径例外和频道规则由内容脚本与同一策略引擎执行。
+`hotturkey/model.py` 验证配置，`engine.py` 实现策略与计时，`store.py` 保存状态和统计，`server.py` 为桌面与 CLI 提供本地接口。`native/Agent.swift` 负责 macOS 进程和设备动作，`native/Desktop.swift` 与 `DesktopAppearance.swift` 提供原生窗口、侧栏、工具栏、菜单及文件选择。内容沿用本地 WebKit 界面，样式与连接说明见 [macOS 界面](docs/INTERFACE.md)。`extension` 通过 Native Messaging 获取策略；普通域名使用浏览器网络规则，复杂路径例外和频道规则由内容脚本与同一策略引擎执行。
 
 参考公开文档：[Cold Turkey 功能页](https://getcoldturkey.com/features/)、[用户指南](https://getcoldturkey.com/support/user-guide/)。本项目与 Cold Turkey Software 无关联，不使用其源代码、品牌素材或商业授权系统。
 

@@ -1,6 +1,7 @@
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
-const hooks={},control={value:''},document={body:{style:{}},documentElement:{style:{setProperty(){}},classList:{toggle(){}}},querySelector:()=>control,addEventListener:(name,fn)=>hooks[name]=fn};
-const context={window:{innerWidth:1200,innerHeight:800,addEventListener(){}},document,performance:{now:()=>1000}};vm.createContext(context);vm.runInContext(fs.readFileSync('web/text-size.js','utf8'),context);
+let sizeNotifications=0;
+const hooks={},control={value:''},document={body:{style:{}},documentElement:{style:{setProperty(){}},classList:{toggle(){}}},querySelector:()=>control,addEventListener:(name,fn)=>hooks[name]=fn,dispatchEvent:event=>{if(event.type==='hotturkey:text-size')sizeNotifications++;}};
+const context={Event:class{constructor(type){this.type=type;}},window:{innerWidth:1200,innerHeight:800,addEventListener(){}},document,performance:{now:()=>1000}};vm.createContext(context);vm.runInContext(fs.readFileSync('web/text-size.js','utf8'),context);
 const sizing=context.window.HotTurkeyTextSize,requests=[],errors=[];let fail=false,gate=null;
 sizing.configure({save:async v=>{requests.push(v);if(gate)await gate;if(fail)throw Error('请先输入设置密码');},notify:e=>errors.push(e)});
 const tick=()=>new Promise(setImmediate);
@@ -17,6 +18,7 @@ let count=0;
  let prevented=false;hooks.wheel({metaKey:true,deltaY:-80,deltaMode:0,preventDefault(){prevented=true;}});await tick();assert.equal(prevented,true);assert.equal(sizing.value,140);count++;
  hooks.auxclick({metaKey:true,button:1,preventDefault(){}});await tick();assert.equal(sizing.value,100);count++;
  hooks.change({target:{id:'text-scale',value:'175'}});await tick();assert.equal(sizing.value,175);sizing.sync(999);assert.equal(sizing.value,175);count++;
+ sizing.increase();await tick();assert.equal(sizing.value,185);sizing.decrease();await tick();assert.equal(sizing.value,175);sizing.reset();await tick();assert.equal(sizing.value,100);assert(sizeNotifications>0);count++;
  const source=fs.readFileSync('web/app.js','utf8').match(/function calendarY\([^\n]+/)[0];vm.runInContext(source,context);const point=(height,y)=>vm.runInContext(`calendarY({getBoundingClientRect:()=>({top:100,height:${height}})},${y})`,context);assert.equal(point(1440,820),360);assert.equal(point(360,280),360);assert.equal(point(720,-20),0);assert.equal(point(720,2000),719);count++;
  console.log(`${count} text sizing, persistence races, password protection and input checks passed`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
