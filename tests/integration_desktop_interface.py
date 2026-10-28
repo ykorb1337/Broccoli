@@ -84,9 +84,10 @@ def main():
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--forms',action='store_true',help='Audit form sheets and keyboard/input behavior')
     modes.add_argument('--files',action='store_true',help='Audit real native file panels and file transfers')
+    modes.add_argument('--icons',action='store_true',help='Audit real local application icons in usage statistics')
     modes.add_argument('--transitions',action='store_true',help='Audit the first visible editor frame from both toolbar plus buttons')
     args=parser.parse_args()
-    kind='transitions' if args.transitions else 'files' if args.files else 'forms' if args.forms else 'interface'
+    kind='icons' if args.icons else 'transitions' if args.transitions else 'files' if args.files else 'forms' if args.forms else 'interface'
     binary=ROOT/'build'/f'HotTurkey{kind.title()}Fixture'
     assert binary.is_file(),'Build the interface fixture first with scripts/build.py --qa'
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-interface-') as temporary:
@@ -102,9 +103,15 @@ def main():
         if args.transitions:
             service.engine.save_block({'name':'睡眠计划演示','device':'sleep','enabled':False,'confirm_device':True})
             service.engine.save_block({'name':'其他设备限制演示','device':'lock','enabled':False,'confirm_device':True})
-        for day in range(7):
+        for day in range(0 if args.icons else 7):
             for target,target_kind,seconds in [('docs.example.invalid','website',2200+day*170),('视频课程','application',1600-day*100),('news.example.invalid','website',800+day*100)]:
                 service.store.event(time.time()-day*86400-3600,'演示账户',target_kind,target,first['id'],seconds=seconds,blocked=day%2==0)
+        if args.icons:
+            icon_samples=[('微信','/Applications/WeChat.app'),('ChatGPT','/Applications/ChatGPT.app'),('GoLand','/Applications/GoLand.app'),
+                ('Tabby','/Applications/Tabby.app'),('Obsidian','/Applications/Obsidian.app'),('loginwindow','/System/Library/CoreServices/loginwindow.app')]
+            targets=[name for name,path in icon_samples if Path(path).exists()]+['Uninstalled application icon fixture']
+            for index,name in enumerate(targets):service.store.event(time.time()-60,'演示账户','application',name,seconds=600-index*20,blocked=index%2==0)
+            service.store.event(time.time()-60,'演示账户','website','chatgpt.com',seconds=30)
         thread=threading.Thread(target=service.http.serve_forever);thread.start()
         try:
             app=directory/f'HotTurkey {kind.title()} QA.app';contents=app/'Contents'
@@ -138,7 +145,11 @@ def main():
             build=ROOT/'build';build.mkdir(exist_ok=True)
             (build/f'native-{kind}-proof.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2))
             for screenshot in output.glob('*.png'):shutil.copy2(screenshot,build/screenshot.name)
-            if args.transitions:validate_transitions_proof(proof)
+            if args.icons:
+                assert proof['passed'],proof.get('error')
+                assert proof['real_installed_application_count']>0
+                assert len(proof['checks'])>=20 and all(value is True for value in proof['checks'].values())
+            elif args.transitions:validate_transitions_proof(proof)
             elif args.files:validate_files_proof(proof)
             elif args.forms:validate_forms_proof(proof)
             else:validate_proof(proof)

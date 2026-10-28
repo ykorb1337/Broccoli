@@ -25,6 +25,14 @@ AppKit 从当前窗口外观提供颜色和 SF Symbols，内容随浅色、深�
 文本和等待休息结束后，下次仍需重新验证或等待。操作保留规则锁定、日程、已有使用额度，
 由管理权限与设置密码保护。设备睡眠计划仍使用原有安全词放行流程。
 
+## 使用统计图标
+
+原生桌面从本机应用包读取真实彩色图标，按应用标识符、准确路径、可执行文件名及本地化名称匹配。
+应用目录在后台扫描；运行中的应用与 Launch Services 补充其他安装位置。重复路径合并，无法确定同名应用时保留首字图标。
+图标显示为 20 px，原始 PNG 为 96 × 96，保留透明边缘与颜色，适配 Retina 与 200% 文字大小。
+没有应用原图的 macOS 登录组件 `loginwindow` 使用系统用户符号，不显示空的通用应用图框。
+搜索、排序与重绘以统计目标匹配图标，网站保留网站符号。此流程不下载远程图标、不启动应用、不写入规则或统计数据。
+
 ## 编辑面板
 
 编辑使用真正的 AppKit sheet。复用同一个 WebView，保留草稿、认证和既有操作；
@@ -59,6 +67,7 @@ python3 -B tests/integration_desktop_interface.py
 python3 -B tests/integration_desktop_interface.py --forms
 python3 -B tests/integration_desktop_interface.py --transitions
 python3 -B tests/integration_desktop_interface.py --files
+python3 -B tests/integration_desktop_interface.py --icons
 ```
 
 测试使用独立签名的最小应用、临时后台和虚构规则，执行层关闭。
@@ -69,6 +78,7 @@ python3 -B tests/integration_desktop_interface.py --files
 - 主界面：92 项，覆盖五个页面、八种锁定方式、深浅色、200% 字体、菜单与草稿。
 - 表单：190 项，覆盖 14 种表单的布局、焦点、标签、键盘、校验及权限状态。
 - 文件流程：13 项，真实确认导出与导入，验证取消、嵌套面板、覆盖与失败保护。
+- 应用图标：本机 37 项，覆盖 6 个真实应用、中文与身份匹配、排序、搜索及深浅色和 200% 文字。
 - 新建与切换：35 项，验证原生加号的两个菜单选项、睡眠向导默认停用、规则分组、
   搜索及只读权限，同时覆盖延迟帧遮挡、关闭恢复、快速重开与绘制停滞回退。
 

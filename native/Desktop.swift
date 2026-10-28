@@ -24,6 +24,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var nativeChromeInstalled = false
     var fileDialogs: DesktopFiles!
     private var desktopIconLoaded = false
+    let applicationIcons = DesktopAppIcons()
     var activeOrigin: URL?
     let probeSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -200,6 +201,16 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard trustedFrame(message.frameInfo) else { return }
+        if let body = message.body as? [String:Any], body["op"] as? String == "application-icons", let targets = body["targets"] as? [String] {
+            let generation = navigationGeneration
+            applicationIcons.request(targets) { [weak self] icons in
+                guard let self, self.navigationGeneration == generation,
+                      let data = try? JSONSerialization.data(withJSONObject: icons),
+                      let json = String(data: data, encoding: .utf8) else { return }
+                self.web.evaluateJavaScript("window.HotTurkeyActivityIcons?.apply(\(json)); true")
+            }
+            return
+        }
         if let body = message.body as? [String:Any], body["op"] as? String == "present-editor" {
             if nativeChromeInstalled { appearance.presentEditor() }
             else { web.evaluateJavaScript("window.HotTurkeySheet?.fallback()") }

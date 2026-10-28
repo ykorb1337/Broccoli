@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Show real macOS application icons in usage statistics. Resolve local bundle
+  identities, paths and localized names, retain full-color Retina artwork across
+  sorting and text scaling, and use a monogram when identity is unavailable.
+
 - Increase component text sizes and secondary text contrast, including rule
   summaries, status badges, timestamps, forms and calendar events. Use opaque
   secondary text in the native palette and preserve the existing theme setting.

@@ -30,6 +30,25 @@
  const buttons={new:['plus','新建拦截规则'],'new-device':['bed','新建睡眠计划'],duplicate:['copy','复制规则'],delete:['trash','删除规则'],close:['close','关闭'],
   export:['upload','导出规则'],'export-stats':['upload','导出统计'],import:['download','导入规则'],'calendar-add':['plus','添加时段'],
   'reset-pomodoro':['reset','重置番茄钟'],'pick-app':['app','选择应用'],'pick-folder':['folder','选择文件夹'],'pick-binary':['app','选择可执行文件']};
+ const activityImages=new Map(),activityPending=new Set();
+ function applyActivityImage(element){
+  const target=element.dataset.activityTarget||'';
+  const source=activityImages.get(target);
+  if(source){
+   const image=document.createElement('img');image.src=source;image.alt='';image.decoding='async';
+   element.replaceChildren(image);element.classList.remove('application-monogram');element.dataset.iconSource='application';
+  }
+ }
+ window.HotTurkeyActivityIcons={apply(values){
+  if(!Array.isArray(values))return;
+  for(const value of values){
+   if(!value||typeof value.target!=='string'||!activityPending.has(value.target))continue;
+   const source=typeof value.image==='string'&&value.image.length<=90000&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(value.image)?value.image:null;
+   activityImages.set(value.target,source);activityPending.delete(value.target);
+  }
+  if(activityImages.size>512){activityImages.clear();activityPending.clear();}
+  document.querySelectorAll('.activity-icon[data-activity-kind="application"]').forEach(applyActivityImage);
+ }};
  let pending=false,lastNative='';
  const semanticColors=new Set(['--bg','--panel','--ink','--muted','--line','--accent','--tint','--field','--hover','--green','--green-text','--green-tint','--danger','--warning','--warning-text','--warning-tint','--focus','--selection','--selection-ink','--primary-ink','--inactive-selection','--disabled','--link']);
  window.HotTurkeyAppearance={apply(value){
@@ -81,9 +100,19 @@
    const name=element.classList.contains('hero-icon')?'shield':element.dataset.device==='sleep'?'bed':element.textContent==='◴'?'lock':element.textContent==='▦'?'calendar':'shield';
    element.replaceChildren(icon(name));element.dataset.decorated='true';
   });
+  const requested=[];
   document.querySelectorAll('.activity-icon:not([data-decorated])').forEach(element=>{
-   element.replaceChildren(icon(element.dataset.activityKind==='website'?'globe':'app'));element.dataset.decorated='true';
+   element.dataset.decorated='true';
+   if(element.dataset.activityKind==='website'){element.replaceChildren(icon('globe'));return;}
+   const target=element.dataset.activityTarget||'';
+   element.textContent=Array.from(target.replace(/^bundle:/,''))[0]?.toLocaleUpperCase()||'·';
+   element.classList.add('application-monogram');
+   applyActivityImage(element);
+   if(target&&!activityImages.has(target)&&!activityPending.has(target)&&window.webkit?.messageHandlers?.native){
+    activityPending.add(target);requested.push(target);
+   }
   });
+  if(requested.length)window.webkit.messageHandlers.native.postMessage({op:'application-icons',targets:requested.slice(0,100)});
   document.querySelectorAll('.tag').forEach(element=>{
    if(element.dataset.decorated||!element.textContent.startsWith('♧'))return;
    element.textContent=element.textContent.replace(/^♧\s*/, '');element.prepend(icon('lock'));element.dataset.decorated='true';
