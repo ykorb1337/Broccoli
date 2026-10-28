@@ -25,7 +25,7 @@ enum DesktopMenu {
         application.addItem(withTitle: "退出 HotTurkey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = section("文件")
-        file.addItem(withTitle: "新建规则", action: #selector(Delegate.createRule(_:)), keyEquivalent: "n").target = delegate
+        file.addItem(withTitle: "新建拦截规则", action: #selector(Delegate.createRule(_:)), keyEquivalent: "n").target = delegate
         let sleep = file.addItem(withTitle: "新建睡眠计划", action: #selector(Delegate.createDevicePlan(_:)), keyEquivalent: "n")
         sleep.target = delegate; sleep.keyEquivalentModifierMask = [.command, .shift]
         file.addItem(.separator())

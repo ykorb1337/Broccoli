@@ -40,7 +40,7 @@ let count=0;
  context.state.authenticated=true;context.renderPage();assert.equal(rendered.at(-1),'blocks');
  const managed=context.blockCard(block);assert(managed.includes('data-action="edit"'));assert(managed.includes('role="switch"'));count++;
  context.state.can_manage=false;
- vm.runInContext(source.match(/function renderBlocks\([^\n]+/)[0],context);context.renderBlocks();
+ vm.runInContext(source.slice(source.indexOf('function renderBlocks('),source.indexOf('function renderCalendar(')),context);context.renderBlocks();
  assert(!element('#content').innerHTML.includes('data-action="import"'));assert(!element('#content').innerHTML.includes('data-action="new"'));count++;
  vm.runInContext(source.match(/function renderCalendar\([^\n]+/)[0],context);context.renderCalendar();assert(!element('#content').innerHTML.includes('data-action="calendar-add"'));count++;
  context.openModal=(title,body)=>{context.modalBody=body;};context.state.mode='system';

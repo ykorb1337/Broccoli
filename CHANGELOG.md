@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Consolidate rule and sleep-plan creation into the toolbar's plus menu with
+  explicit labels and a bed symbol. Group website/application rules and sleep
+  plans under separate headings; keep searching across all groups and preserve
+  other device restrictions. Leave existing appearance settings unchanged.
+
 - Keep the inherited WebKit frame covered while opening a native editor sheet.
   Reveal the editor after animation frames and an updated WebKit snapshot;
   retain the bounded fallback if rendering stalls. Exercise both toolbar plus

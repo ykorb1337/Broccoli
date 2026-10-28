@@ -3,7 +3,7 @@ import WebKit
 
 // The operating system owns the sidebar material, toolbar glass, selection,
 // accessibility and window controls. The policy interface stays in WebKit.
-final class DesktopAppearance: NSObject, NSToolbarDelegate {
+final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation {
     let split = NSSplitViewController()
     let sidebar = FocusSidebar()
     weak var web: WKWebView?
@@ -15,7 +15,9 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate {
     private(set) var textScale = 100
     var canNavigate: Bool { window != nil && !modalActive && window?.attachedSheet == nil }
     var canCreate: Bool { canNavigate && canManage }
-    private let identifiers = ["new-device", "new", "export-stats"]
+    private let identifiers = ["new", "export-stats"]
+    private var creationActions = Set<String>()
+    private var creationMenu: NSMenu?
     private var editorSheet: DesktopSheet?
     private var style: DesktopStyle?
     var presentationWindow: NSWindow? { editorSheet?.panel ?? window }
@@ -93,9 +95,14 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate {
         modalActive = modal
         sidebar.table.isEnabled = !modal
         let available = value["actions"] as? [String] ?? []
+        creationActions = Set(available.filter { ["new", "new-device"].contains($0) })
+        for item in creationMenu?.items ?? [] {
+            item.isEnabled = !modal && canManage && creationActions.contains(item.representedObject as? String ?? "")
+        }
         for (name, item) in actions {
-            item.isEnabled = !modal && available.contains(name)
-            if #available(macOS 15.0, *) { item.isHidden = !available.contains(name) }
+            let visible = name == "new" ? !creationActions.isEmpty : available.contains(name)
+            item.isEnabled = !modal && visible
+            if #available(macOS 15.0, *) { item.isHidden = !visible }
         }
         editorSheet?.synchronize(value)
         style?.refresh(force: value["paletteReady"] as? Bool != true)
@@ -122,24 +129,48 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate {
             return item
         }
         guard identifiers.contains(identifier.rawValue) else { return nil }
-        let labels = ["new-device":"定时睡眠", "new":"新建规则", "export-stats":"导出统计"]
-        let symbols = ["new-device":"moon", "new":"plus", "export-stats":"square.and.arrow.up"]
+        if identifier.rawValue == "new" {
+            let item = NSMenuToolbarItem(itemIdentifier: identifier)
+            item.label = "新建"; item.toolTip = "新建拦截规则或睡眠计划"
+            item.image = NSImage(systemSymbolName: "plus", accessibilityDescription: item.label)
+            let menu = NSMenu(title: "新建")
+            for (title, action, symbol, selector) in [
+                ("新建拦截规则", "new", "shield.lefthalf.filled", #selector(newRule(_:))),
+                ("新建睡眠计划", "new-device", "bed.double", #selector(newDevice(_:)))
+            ] {
+                let entry = menu.addItem(withTitle: title, action: selector, keyEquivalent: "")
+                entry.target = self; entry.representedObject = action; entry.isEnabled = false
+                entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            }
+            creationMenu = menu; item.menu = menu; item.showsIndicator = true
+            item.isBordered = true; item.isEnabled = false; item.autovalidates = false
+            actions["new"] = item
+            return item
+        }
+        let labels = ["export-stats":"导出统计"]
+        let symbols = ["export-stats":"square.and.arrow.up"]
         let item = NSToolbarItem(itemIdentifier: identifier)
         item.label = labels[identifier.rawValue]!; item.toolTip = item.label
         item.image = NSImage(systemSymbolName: symbols[identifier.rawValue]!, accessibilityDescription: item.label)
         item.target = self
-        item.action = identifier.rawValue == "new" ? #selector(newRule(_:)) : identifier.rawValue == "new-device" ? #selector(newDevice(_:)) : #selector(exportStatistics(_:))
+        item.action = #selector(exportStatistics(_:))
         item.isBordered = true; item.isEnabled = false; item.autovalidates = false
         actions[identifier.rawValue] = item
         return item
     }
     private func invoke(_ action: String) {
-        guard actions[action]?.isEnabled == true else { return }
+        if ["new", "new-device"].contains(action) {
+            guard canCreate, creationActions.contains(action) else { return }
+        } else if actions[action]?.isEnabled != true { return }
         click("#header-actions [data-action=\(action)]")
     }
     @objc private func newRule(_ sender: Any?) { invoke("new") }
     @objc private func newDevice(_ sender: Any?) { invoke("new-device") }
     @objc private func exportStatistics(_ sender: Any?) { invoke("export-stats") }
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let action = menuItem.representedObject as? String else { return false }
+        return canCreate && creationActions.contains(action)
+    }
 }
 
 final class FocusSidebar: NSViewController, NSTableViewDataSource, NSTableViewDelegate {

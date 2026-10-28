@@ -8,6 +8,7 @@
   chart:'M4 20V5 M4 20h17 M8 16v-5 M13 16V6 M18 16V9',
   settings:'M10 3h4l.7 2.5 2.3 1.3 2.5-.6 2 3.5-1.8 1.9v2.7l1.8 1.8-2 3.5-2.5-.6-2.3 1.3L14 23h-4l-.7-2.2L7 19.5l-2.5.6-2-3.5 1.8-1.8v-2.7L2.5 10l2-3.5 2.5.6 2.3-1.3z M15.5 13a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0',
   moon:'M20.5 14a8.7 8.7 0 0 1-10.8-10.8A9 9 0 1 0 20.5 14z',
+  bed:'M3 18V7 M3 14h18v4 M3 11h18v3 M7 11V8h5v3 M12 11V8h5v3 M21 11v7',
   plus:'M12 5v14 M5 12h14', close:'M6 6l12 12 M18 6 6 18',
   copy:'M9 8V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3 M5 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2',
   download:'M12 3v12 M7 10l5 5 5-5 M4 15v5h16v-5',
@@ -26,7 +27,7 @@
   return svg;
  }
  const navigation={overview:'overview',blocks:'shield',schedule:'calendar',statistics:'chart',settings:'settings'};
- const buttons={new:['plus','新建规则'],'new-device':['moon','定时睡眠'],duplicate:['copy','复制规则'],delete:['trash','删除规则'],close:['close','关闭'],
+ const buttons={new:['plus','新建拦截规则'],'new-device':['bed','新建睡眠计划'],duplicate:['copy','复制规则'],delete:['trash','删除规则'],close:['close','关闭'],
   export:['upload','导出规则'],'export-stats':['upload','导出统计'],import:['download','导入规则'],'calendar-add':['plus','添加时段'],
   'reset-pomodoro':['reset','重置番茄钟'],'pick-app':['app','选择应用'],'pick-folder':['folder','选择文件夹'],'pick-binary':['app','选择可执行文件']};
  let pending=false,lastNative='';
@@ -77,7 +78,7 @@
   });
   document.querySelectorAll('.block-icon,.hero-icon').forEach(element=>{
    if(element.dataset.decorated)return;
-   const name=element.classList.contains('hero-icon')?'shield':element.textContent==='◴'?'moon':element.textContent==='▦'?'calendar':'shield';
+   const name=element.classList.contains('hero-icon')?'shield':element.dataset.device==='sleep'?'bed':element.textContent==='◴'?'lock':element.textContent==='▦'?'calendar':'shield';
    element.replaceChildren(icon(name));element.dataset.decorated='true';
   });
   document.querySelectorAll('.activity-icon:not([data-decorated])').forEach(element=>{

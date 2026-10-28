@@ -67,7 +67,10 @@ def validate_files_proof(proof):
 def validate_transitions_proof(proof):
     required={f'{page}_{profile}_{check}' for page in ['blocks','schedule']
               for profile in ['light','dark','dark_200'] for check in ['first_frame_protected','pending_frame_stays_covered','editor_ready_before_uncover','main_page_restored']}
-    required.update(['cancelled_transition_cannot_uncover_next_sheet','stalled_editor_uses_bounded_existing_fallback'])
+    required.update(['cancelled_transition_cannot_uncover_next_sheet','stalled_editor_uses_bounded_existing_fallback',
+        'toolbar_has_single_creation_menu','creation_menu_has_two_explicit_choices','rule_groups_are_distinct_and_complete',
+        'sleep_search_hides_empty_other_groups','clearing_search_restores_groups','blocks_sleep_menu_opens_inactive_wizard',
+        'schedule_sleep_menu_opens_inactive_wizard','readonly_creation_menu_disabled','readonly_menu_cannot_open_wizard'])
     assert proof['passed'],proof.get('error')
     assert required.issubset(proof['checks']),sorted(required-set(proof['checks']))
     assert all(value is True for value in proof['checks'].values()),proof['checks']
@@ -93,6 +96,9 @@ def main():
         service.engine.save_block({'name':'每周学习计划','mode':'scheduled','enabled':True,'color':'#af52de','websites':['stream.invalid'],
             'schedule':[{'days':[0,1,2,3,4],'start':540,'end':720},{'days':[0,1,2,3,4],'start':840,'end':1020}]})
         service.engine.save_block({'name':'休息日','enabled':False,'websites':['games.invalid']})
+        if args.transitions:
+            service.engine.save_block({'name':'睡眠计划演示','device':'sleep','enabled':False,'confirm_device':True})
+            service.engine.save_block({'name':'其他设备限制演示','device':'lock','enabled':False,'confirm_device':True})
         for day in range(7):
             for target,target_kind,seconds in [('docs.example.invalid','website',2200+day*170),('视频课程','application',1600-day*100),('news.example.invalid','website',800+day*100)]:
                 service.store.event(time.time()-day*86400-3600,'演示账户',target_kind,target,first['id'],seconds=seconds,blocked=day%2==0)
@@ -115,6 +121,8 @@ def main():
             subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(app)],check=True,capture_output=True)
             command=['/usr/bin/open','-W','-n','-a',str(app),'--args',str(directory)] if args.files else [str(executable),str(directory)]
             result=subprocess.run(command,capture_output=True,text=True,timeout=560 if args.files else 100)
+            desktop_log=service.store.directory/'desktop.log'
+            if desktop_log.exists():shutil.copy2(desktop_log,ROOT/'build'/f'native-{kind}-desktop.log')
             if args.files:
                 for source in [output/'native-files-phase.txt',service.store.directory/'desktop.log']:
                     if source.exists():shutil.copy2(source,ROOT/'build'/('native-files-'+source.name))

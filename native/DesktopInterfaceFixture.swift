@@ -50,6 +50,9 @@ final class InterfaceQA {
   require(delegate.validateMenuItem(item),"Menu command unexpectedly disabled")
   require(NSApp.sendAction(item.action!,to:item.target,from:item),"Menu command failed")
  }
+ func editorVisible(_ panel:NSWindow)->Bool {
+  !(panel.contentView?.subviews.contains{$0.accessibilityIdentifier()=="HotTurkeyEditorRenderCover"} ?? true)
+ }
  func finish(_ error:String?=nil) {
   let failure=error ?? (checks.values.contains(false) ? "Failed checks: \(checks.filter{!$0.value}.keys.sorted())" : nil)
   var value:[String:Any] = ["passed":failure == nil,"checks":checks,"enforcement":false,"formal_data_changed":false,"physical_sleep_invoked":false]
@@ -65,6 +68,22 @@ final class InterfaceQA {
    completion(value)
   }
  }
+ func waitForPage(_ page:String,_ completion:@escaping()->Void) {
+  busy=true
+  delegate.web.callAsyncJavaScript("""
+   const deadline=performance.now()+4000;
+   while(document.body.dataset.view!=='\(page)'){
+    if(performance.now()>deadline)throw Error('Page transition did not complete: '+document.body.dataset.view);
+    await new Promise(resolve=>setTimeout(resolve,30));
+   }
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+   return true;
+   """,arguments:[:],in:nil,in:.page){result in
+    self.busy=false
+    guard case .success(let ready)=result,ready as? Bool==true else{self.finish("Page transition failed: \(page): \(result)");return}
+    completion()
+  }
+ }
  func tick() {
   ticks += 1
   if previousPhase != phase {previousPhase=phase;try? "phase \(phase)".write(to:root.appendingPathComponent("build/native-sheet-phase.txt"),atomically:true,encoding:.utf8)}
@@ -74,11 +93,12 @@ final class InterfaceQA {
   switch phase {
   case 0:
    guard d.navigationFinished && d.nativeChromeInstalled else {return}
+   d.show()
    js("Boolean(document.querySelector('#header-actions [data-action=new]'))") {value in
     if value as? Bool == true { self.phase=1;self.js("api('settings',{text_scale:100,theme:'light'}).then(()=>refresh(false)).then(()=>document.querySelector('#header-actions [data-action=new]').click());true") {_ in} }
    }
   case 1:
-   guard let panel=d.window.attachedSheet,d.web.window === panel else{return}
+   guard let panel=d.window.attachedSheet,d.web.window === panel,editorVisible(panel) else{return}
    checks["real_appkit_sheet"]=panel is NSPanel;originalPanel=panel
    if let item=menu(#selector(Delegate.createRule(_:))) {
     checks["new_disabled_during_sheet"] = !d.validateMenuItem(item)
@@ -128,17 +148,19 @@ final class InterfaceQA {
    js("document.querySelector('#content').textContent.includes('Native Sheet QA')&&!document.documentElement.classList.contains('native-sheet')") {value in
     guard value as? Bool == true else{return}
     self.checks["inactive_rule_saved"]=true;self.phase=9
+    d.show()
     self.js("document.querySelector('#header-actions [data-action=new]').click()") {_ in}
    }
   case 9:
-   guard let panel=d.window.attachedSheet else{return}
+   guard let panel=d.window.attachedSheet,editorVisible(panel) else{return}
    phase=10;panel.performClose(nil)
   case 10:
-   guard d.window.attachedSheet == nil,d.web.window === d.window else{return}
+   guard d.window.attachedSheet == nil,d.web.window === d.window,d.appearance.canNavigate else{return}
    checks["native_close_restores_main_webview"]=true
+   d.show()
    phase=11;js("api('settings',{text_scale:200,theme:'dark'}).then(()=>refresh(false)).then(()=>document.querySelector('#header-actions [data-action=new]').click()); true") {_ in}
   case 11:
-   guard let panel=d.window.attachedSheet,d.web.window === panel else{return}
+   guard let panel=d.window.attachedSheet,d.web.window === panel,editorVisible(panel) else{return}
    checks["large_text_sheet_bounded"]=panel.frame.width<=d.window.frame.width && panel.frame.height<=d.window.frame.height
    phase=12;busy=true
    DispatchQueue.main.asyncAfter(deadline:.now()+0.35) {
@@ -153,10 +175,11 @@ final class InterfaceQA {
    }
   case 12:
    guard d.window.attachedSheet == nil,d.web.window === d.window else{return}
+   d.show()
    phase=13
    js("api('settings',{text_scale:100,theme:'light'}).then(()=>refresh(false)).then(()=>lockModal(state.blocks.find(b=>b.name==='Native Sheet QA').id));true") {_ in}
   case 13:
-   guard let panel=d.window.attachedSheet,d.web.window === panel else{return}
+   guard let panel=d.window.attachedSheet,d.web.window === panel,editorVisible(panel) else{return}
    checks["compact_lock_sheet"]=abs(panel.frame.width-480)<2
    phase=14;busy=true
    DispatchQueue.main.asyncAfter(deadline:.now()+0.35) {
@@ -174,10 +197,11 @@ final class InterfaceQA {
    }
   case 15:
    guard d.window.attachedSheet == nil,d.web.window === d.window else{return}
+   d.show()
    phase=16
    js("api('settings',{text_scale:200,theme:'dark'}).then(()=>refresh(false)).then(()=>lockModal(state.blocks.find(b=>b.name==='Native Sheet QA').id));true") {_ in}
   case 16:
-   guard let panel=d.window.attachedSheet,d.web.window === panel else{return}
+   guard let panel=d.window.attachedSheet,d.web.window === panel,editorVisible(panel) else{return}
    phase=17;busy=true
    DispatchQueue.main.asyncAfter(deadline:.now()+0.35) {
     self.js("(()=>{const r=document.querySelector('.modal-footer').getBoundingClientRect();return document.body.style.zoom==='2'&&document.body.classList.contains('dark')&&r.bottom<=innerHeight+2&&r.right<=innerWidth+2})()") {value in
@@ -226,9 +250,11 @@ final class InterfaceQA {
    guard let item=NSApp.mainMenu?.items.compactMap(\.submenu).flatMap(\.items).first(where:{$0.action == #selector(Delegate.selectPage(_:)) && $0.representedObject as? String == page}) else{finish("Page menu missing");return}
    invoke(item);busy=true
    let calendarCheck=page=="schedule" ? "[...document.querySelectorAll('.calendar-event')].length>0&&[...document.querySelectorAll('.calendar-event')].every(el=>el.tagName==='BUTTON'&&el.tabIndex===0&&getComputedStyle(el).opacity==='1'&&el.querySelector('b').getBoundingClientRect().top<=el.getBoundingClientRect().top+16)" : "true"
-   DispatchQueue.main.asyncAfter(deadline:.now()+0.4){
+   waitForPage(page){
     self.js("document.body.dataset.view==='\(page)'&&document.documentElement.scrollWidth<=innerWidth+1&&[...document.querySelectorAll('#content input,#content select,#content button')].filter(el=>el.getBoundingClientRect().width&&!el.closest('.schedule-scroller')).every(el=>{const r=el.getBoundingClientRect();return r.left>=-1&&r.right<=innerWidth+1})&&(\(calendarCheck))&&[...document.querySelectorAll('#content input,#content select,#content textarea')].filter(el=>el.getBoundingClientRect().width).every(el=>el.getAttribute('aria-label')?.trim()||[...el.labels||[]].some(label=>label.textContent.trim()))") {value in
-     guard value as? Bool == true else{self.finish("Page controls clipped: \(page)");return}
+     guard value as? Bool == true else{
+      self.js("JSON.stringify({view:document.body.dataset.view,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,zoom:document.body.style.zoom,classes:document.documentElement.className,controls:[...document.querySelectorAll('#content input,#content select,#content button')].filter(el=>el.getBoundingClientRect().width&&!el.closest('.schedule-scroller')).map(el=>({action:el.dataset.action,id:el.id,rect:el.getBoundingClientRect().toJSON()})).filter(el=>el.rect.left< -1||el.rect.right>innerWidth+1)})"){details in self.finish("Page controls clipped: \(page) \(self.darkPages) \(self.largePages) \(details ?? "nil")")};return
+     }
      self.checks["\(page)_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_layout"]=true
      if page=="schedule" {self.checks["calendar_events_readable_and_keyboard_focusable"]=true}
      self.checks["\(page)_\(self.darkPages ? "dark":"light")\(self.largePages ? "_200":"")_input_labels"]=true
