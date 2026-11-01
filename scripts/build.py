@@ -26,25 +26,30 @@ def main():
     targets=[("Agent.swift","HotTurkeyAgent",["AppKit","CoreGraphics","IOKit"]),("Desktop.swift","HotTurkey",["AppKit","WebKit","UserNotifications"]),("PeerCheck.swift","HotTurkeyPeerCheck",["Foundation","Security"]),("PolicyClient.swift","HotTurkeyPolicyClient",["Foundation"])]
     targets.append(('SessionAgent.swift','HotTurkeySessionAgent',['AppKit','CoreGraphics','Security']))
     targets.append(('BrowserHost.swift','HotTurkeyBrowserHost',['Foundation','Security']))
+    targets.append(('TrackingAgent.swift','HotTurkeyTracker',['AppKit','ApplicationServices','CoreGraphics','ImageIO','UniformTypeIdentifiers']))
     if args.qa:
         targets.extend([("PeerFixture.swift","HotTurkeyPeerFixture",["Foundation"]),("PolicyClient.swift","HotTurkeyPolicyClientQA",["Foundation"])])
         targets.append(('SessionAgent.swift','HotTurkeySessionAgentQA',['AppKit','CoreGraphics','Security']))
         targets.append(('SessionDesktopFixture.swift','HotTurkeySessionDesktopFixture',['AppKit','Security']))
         targets.append(('LoginAppFixture.swift','HotTurkeyLoginAppFixture',['Foundation']))
+        targets.append(('RecoveryUIFixture.swift','HotTurkeyRecoveryUIFixture',['AppKit']))
         targets.extend([('BrowserHost.swift','HotTurkeyBrowserHostQA',['Foundation','Security']),('BrowserFixture.swift','HotTurkeyBrowserFixture',['Foundation'])])
         targets.append(('DesktopInterfaceFixture.swift','HotTurkeyInterfaceFixture',['AppKit','WebKit','UserNotifications']))
         targets.append(('DesktopFormsFixture.swift','HotTurkeyFormsFixture',['AppKit','WebKit','UserNotifications']))
         targets.append(('DesktopFilesFixture.swift','HotTurkeyFilesFixture',['AppKit','WebKit','UserNotifications']))
         targets.append(('DesktopTransitionsFixture.swift','HotTurkeyTransitionsFixture',['AppKit','WebKit','UserNotifications']))
         targets.append(('DesktopAppIconsFixture.swift','HotTurkeyIconsFixture',['AppKit','WebKit','UserNotifications']))
+        targets.append(('DesktopTrackingFixture.swift','HotTurkeyTrackingFixture',['AppKit','WebKit','UserNotifications']))
     for source,name,frameworks in targets:
         architecture='arm64' if platform.machine() in {'arm64','aarch64'} else 'x86_64'
         command=["/usr/bin/swiftc","-swift-version","5","-target",architecture+'-apple-macos12.0',"-O","-module-cache-path",str(module_cache),str(ROOT/"native"/source),"-o",str(BUILD/name)]
+        if source=='TrackingAgent.swift':command.extend(['-parse-as-library','-Xlinker','-weak_framework','-Xlinker','ScreenCaptureKit'])
         if source in {'PolicyClient.swift','SessionAgent.swift','BrowserHost.swift'}:command.append(str(ROOT/'native/LocalPolicySocket.swift'))
         if source in {'SessionAgent.swift','SessionDesktopFixture.swift'}:command.append(str(ROOT/'native/SessionDesktop.swift'))
+        if source == 'RecoveryUIFixture.swift':command.extend([str(ROOT/'native/SleepGuardUI.swift'),'-D','QA_RECOVERY'])
         if source in {'Agent.swift','SessionAgent.swift'}:command.append(str(ROOT/'native/SleepGuardUI.swift'))
-        if source == 'Desktop.swift':command.extend([str(ROOT/'native'/name) for name in ['DesktopAppearance.swift','DesktopSheet.swift','DesktopStyle.swift','DesktopMenu.swift','DesktopFiles.swift','DesktopAppIcons.swift']])
-        if source in {'DesktopInterfaceFixture.swift','DesktopFormsFixture.swift','DesktopFilesFixture.swift','DesktopTransitionsFixture.swift','DesktopAppIconsFixture.swift'}:command.extend([str(ROOT/'native'/name) for name in ['Desktop.swift','DesktopAppearance.swift','DesktopSheet.swift','DesktopStyle.swift','DesktopMenu.swift','DesktopFiles.swift','DesktopAppIcons.swift']]+['-D','QA_SHEET'])
+        if source == 'Desktop.swift':command.extend([str(ROOT/'native'/name) for name in ['DesktopAppearance.swift','DesktopSheet.swift','DesktopStyle.swift','DesktopMenu.swift','DesktopFiles.swift','DesktopAppIcons.swift','DesktopTrackingMedia.swift']])
+        if source in {'DesktopInterfaceFixture.swift','DesktopFormsFixture.swift','DesktopFilesFixture.swift','DesktopTransitionsFixture.swift','DesktopAppIconsFixture.swift','DesktopTrackingFixture.swift'}:command.extend([str(ROOT/'native'/name) for name in ['Desktop.swift','DesktopAppearance.swift','DesktopSheet.swift','DesktopStyle.swift','DesktopMenu.swift','DesktopFiles.swift','DesktopAppIcons.swift','DesktopTrackingMedia.swift']]+['-D','QA_SHEET'])
         if name in {'HotTurkeyPolicyClientQA','HotTurkeySessionAgentQA','HotTurkeyBrowserHostQA'}:command.extend(['-D','QA'])
         for framework in frameworks:command.extend(["-framework",framework])
         subprocess.run(command,check=True)
@@ -71,6 +76,7 @@ def main():
     shutil.copy2(BUILD/'HotTurkeySystemAgent',project/'build/HotTurkeySystemAgent')
     shutil.copy2(BUILD/'HotTurkeySessionAgent',project/'build/HotTurkeySessionAgent')
     shutil.copy2(BUILD/'HotTurkeyBrowserHost',project/'build/HotTurkeyBrowserHost')
+    shutil.copy2(BUILD/'HotTurkeyTracker',project/'build/HotTurkeyTracker')
     python=resources/'python'
     third_party=resources/'ThirdParty/Python'
     if python.exists():shutil.rmtree(python)
@@ -91,7 +97,7 @@ def main():
             with path.open('rb') as stream:magic=stream.read(4)
             if magic in {b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca'}:
                 subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(path)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"11","CFBundleShortVersionString":"0.3.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
+    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"15","CFBundleShortVersionString":"0.4.3","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
     info['CFBundleIconFile']='HotTurkey.icns'
     (app/"Info.plist").write_bytes(plistlib.dumps(info))
     # Ad-hoc signing allows local execution; distribution still needs a Developer ID.

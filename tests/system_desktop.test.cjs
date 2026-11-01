@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync('web/app.js','utf8');
 const elements=new Map(),element=selector=>{
- if(!elements.has(selector))elements.set(selector,{innerHTML:'',textContent:'',classList:{toggle(){}}});
+ if(!elements.has(selector))elements.set(selector,{innerHTML:'',textContent:'',classList:{toggle(){},remove(){}}});
  return elements.get(selector);
 };
 const block={id:'x',name:'Shared rule',device:'none',websites:['fixture.invalid'],exceptions:[],applications:[],

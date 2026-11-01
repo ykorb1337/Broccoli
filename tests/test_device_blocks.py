@@ -98,6 +98,24 @@ class DeviceTests(unittest.TestCase):
     def test_device_selection_is_deterministic_and_does_not_let_lock_override_sleep(self):
         self.plan();self.engine.save_block({'name':'Lock','enabled':True,'device':'lock','device_minutes':5,'confirm_device':True})
         self.assertEqual(selected_device(self.engine)['device'],'sleep')
+    def test_expired_countdown_alone_never_permits_a_device_action(self):
+        self.plan();gate=SleepGate(lambda _:self.engine);gate.update(501)
+        for _ in range(31):self.clock.advance(1);gate.update(501)
+        self.assertEqual(gate.status(501)['phase'],'sleep');self.assertFalse(gate.permitted(501))
+    def test_readiness_must_match_episode_and_remain_fresh(self):
+        self.plan();gate=SleepGate(lambda _:self.engine);state=gate.update(501)
+        for _ in range(30):self.clock.advance(1);gate.update(501)
+        for report in [None,{'until':state['until']+1,'action':'sleep','ready':True},{'until':state['until'],'action':'lock','ready':True},
+                       {'until':state['until'],'action':'sleep','ready':False},{'until':state['until'],'action':[],'ready':True}]:
+            gate.confirm_ui(501,report);self.assertFalse(gate.permitted(501))
+        gate.confirm_ui(501,{'until':state['until'],'action':'sleep','ready':True});self.assertTrue(gate.permitted(501))
+        self.clock.advance(3.1);self.assertFalse(gate.permitted(501))
+    def test_wake_or_typing_readiness_loss_withholds_device_actions(self):
+        self.plan();gate=SleepGate(lambda _:self.engine);state=gate.update(501)
+        for _ in range(30):self.clock.advance(1);gate.update(501)
+        report={'until':state['until'],'action':'sleep','ready':True};gate.confirm_ui(501,report);self.assertTrue(gate.permitted(501))
+        gate.confirm_ui(501,{**report,'ready':False});self.assertFalse(gate.permitted(501))
+        gate.confirm_ui(501,report);gate.update(501,1);self.assertFalse(gate.permitted(501))
     def test_emergency_stop_cancels_automatic_restart_and_keeps_website_rules(self):
         block=self.plan(autostart={'type':'daily','minute':540,'days':[0]})
         web=self.engine.save_block({'name':'Website','enabled':True,'websites':['example.invalid']})
@@ -131,6 +149,8 @@ class ProtectedDeviceTests(unittest.TestCase):
         return {'apps':[],'front':{},'results':[],'console_uid':uid,'device_result':ack,'wake_seq':wake,**values}
     def advance(self,seconds,uid=501,wake=0):
         for _ in range(seconds):
+            state=self.decisions.gate.status(uid)
+            if state:self.decisions.gate.confirm_ui(uid,{'until':state['until'],'action':state['action'],'ready':True})
             self.clock.advance(1);command=self.decisions.consume(self.sample(uid,wake))
         return command
     def test_recovery_is_account_scoped_and_persists_across_authority_restart(self):
@@ -171,10 +191,13 @@ class ProtectedDeviceTests(unittest.TestCase):
         sample={'front_pid':0,'front_start_sec':0,'front_start_usec':0,'front_executable':'','on_console':True,'idle_seconds':0,'sample_seq':1,'event_seq':0,'recovery_word':WORD}
         result=sessions.consume(peer,sample);self.assertTrue(result['recovery_result']['ok'])
         end=result['recovery_result']['until']
+        deadlines={block['id']:self.alice.runtime(block)['device_emergency_until'] for block in self.store.state['blocks']}
+        self.assertEqual(max(deadlines.values()),end)
+        self.assertEqual(len(set(deadlines.values())),2)
         self.clock.advance(1);sample.update(sample_seq=2,event_seq=1);sample.pop('recovery_word')
         sessions.consume(peer,sample)
         for block in self.store.state['blocks']:
-            self.assertFalse(self.alice.active(block));self.assertEqual(self.alice.runtime(block)['device_emergency_until'],end)
+            self.assertFalse(self.alice.active(block));self.assertEqual(self.alice.runtime(block)['device_emergency_until'],deadlines[block['id']])
 
 
 if __name__=='__main__':unittest.main()

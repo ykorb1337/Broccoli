@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const events={},root={innerHTML:'',classList:{add(){}}},calls=[],notices=[];let response='good',pendingReject,focus=0;
+const input={id:'mt-query',value:'Draft',selectionStart:2,selectionEnd:2,focus(){focus++;},setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;}};
+const scroll={scrollTop:0,clientHeight:400,classList:{contains:name=>name==='mt-details-scroll'}};
+const document={querySelector:s=>s==='#content'?root:s==='#mt-query'?input:s==='.mt-details-scroll'?scroll:null,querySelectorAll:()=>[],addEventListener:(n,f)=>(events[n]??=[]).push(f),body:{style:{}}};
+const empty=()=>({handles:()=>false,handlesChange:()=>false,afterRender(){},suspend(){},restore(){},syncQuery(){},resetDay(){},active:()=>false,barHTML:()=>'',read(){},prepare(){}});
+const data=()=>({since:0,until:86400,activities:[{id:'one',timeline:'applications',title:'Draft',application:'Editor',group_name:'Editor',bundle:'local.editor',start:100,end:200,seconds:100,color:'#007aff',source:'recorded'}],tag_ranges:[],settings:{enabled:true,paused_until:0,snap_minutes:1},status:{connected:true},totals:{active:100,selected:0,first:100,last:200}});
+const ctx={document,console,Date,Math,JSON,Number,String,Set,Map,URL,URLSearchParams,Promise,Error,state:{tracking:{version:1},authenticated:true},page:'statistics',modal:{open:false},requestAnimationFrame:()=>0,setTimeout:()=>0,clearTimeout(){},addEventListener(){},toast:v=>notices.push(v),api:async path=>{calls.push(path);if(response==='bad')throw Error('筛选条件无效：缺少右括号');if(response==='late')return new Promise((_,reject)=>pendingReject=reject);return data();},HotTurkeyReportUI:{create:empty},HotTurkeyTags:{create:empty},HotTurkeyTimesheetUI:{create:empty},HotTurkeyAutoTagsUI:{create:empty},HotTurkeyClockUI:{create:empty},HotTurkeyMedia:{create:empty}};
+ctx.window=ctx;vm.createContext(ctx);for(const file of ['web/tracking-day-data.js','web/tracking.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+(async()=>{
+ await ctx.HotTurkeyTracking.refresh();const m=ctx.HotTurkeyTracking.model;const previous=m.data;m.selection=[[100,150]];
+ scroll.scrollTop=3600;for(const f of events.scroll||[])f({target:scroll});response='bad';m.query='(Draft';await ctx.HotTurkeyTracking.refresh();assert.equal(scroll.scrollTop,3600,'invalid filter must preserve the previous result scroll position');
+ assert.equal(m.data,previous);assert.equal(m.queryError,'筛选条件无效：缺少右括号');assert.equal(m.error,'');
+ assert(root.innerHTML.includes('aria-invalid="true"'));assert(root.innerHTML.includes('仍显示上次结果'));assert(root.innerHTML.includes('mt-detail-pane'));assert(root.innerHTML.includes('role="alert"'));assert(!root.innerHTML.includes('class="mt-error"'));
+ ctx.HotTurkeyTracking.export();assert.equal(notices.length,1,'invalid filter cannot export stale results');
+ response='good';m.query='Draft';await ctx.HotTurkeyTracking.refresh();assert.equal(m.queryError,'');assert(root.innerHTML.includes('aria-invalid="false"'));assert.equal(m.data.totals.selected,50);assert.equal(scroll.scrollTop,0,'successfully changed filter starts at the first matching result');
+ const before=calls.length;const event={target:input,key:'Enter',defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};for(const f of events.keydown||[])f(event);await new Promise(setImmediate);assert(event.defaultPrevented);assert.equal(calls.length,before+1);assert(focus>0);assert.equal(input.selectionStart,2);
+ response='bad';m.day='2026-10-20';await ctx.HotTurkeyTracking.refresh();assert(m.error.includes('筛选条件无效'));assert(root.innerHTML.includes('class="mt-error"'),'cannot label stale results as a newly requested day');
+ m.day=m.dayKey;response='late';m.query='Draft';m.selection=[[100,150]];m.appScope={application:'Editor',bundle:'local.editor'};
+ const stale=ctx.HotTurkeyTracking.refresh();for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'fit'}})}});
+ pendingReject(Error('筛选条件无效：late'));await stale;assert.equal(m.query,'');assert.equal(m.selection.length,0);assert.equal(m.appScope,null);assert.equal(m.queryError,'');assert.equal(m.error,'');
+ response='late';const pending=ctx.HotTurkeyTracking.refresh();ctx.state.authenticated=false;ctx.HotTurkeyTracking.hidePrivateViews();pendingReject(Error('筛选条件无效：private'));await pending;assert.equal(m.data,null);assert(!String(m.queryError).includes('private'));
+ console.log('8 search error recovery, preserved context, export, Enter and privacy scenarios passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

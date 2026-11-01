@@ -112,15 +112,12 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
     func cancelEditor() { editorSheet?.reset() }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .sidebarTrackingSeparator, .flexibleSpace] + identifiers.map { .init($0) }
+        [.toggleSidebar, .flexibleSpace] + identifiers.map { .init($0) }
     }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         toolbarDefaultItemIdentifiers(toolbar)
     }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        if identifier == .sidebarTrackingSeparator {
-            return NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: split.splitView, dividerIndex: 0)
-        }
         if identifier == .toggleSidebar {
             let item = NSToolbarItem(itemIdentifier: identifier)
             item.label = "显示或隐藏侧栏"; item.toolTip = item.label
@@ -199,7 +196,7 @@ final class FocusSidebar: NSViewController, NSTableViewDataSource, NSTableViewDe
         let brand = NSStackView(views: [icon, name]); brand.spacing = 9
         connection.font = .systemFont(ofSize: 12); connection.textColor = .secondaryLabelColor
         connection.lineBreakMode = .byTruncatingTail
-        let emergency = NSButton(title: "紧急放行设备限制", target: self, action: #selector(emergencyAction))
+        let emergency = NSButton(title: "紧急放行", target: self, action: #selector(emergencyAction))
         emergency.bezelStyle = .inline; emergency.font = .systemFont(ofSize: 12)
         emergency.contentTintColor = .secondaryLabelColor
         let setup = NSButton(title: "浏览器与安装说明", target: self, action: #selector(setupAction))

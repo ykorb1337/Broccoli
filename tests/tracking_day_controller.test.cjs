@@ -1,0 +1,40 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
+const first=deferred(),late=deferred(),calls=[],events={},root={innerHTML:'',classList:{add(){}}};let requests=0,immediate=false;
+const document={querySelector:s=>s==='#content'?root:null,querySelectorAll:()=>[],addEventListener:(n,f)=>(events[n]??=[]).push(f),body:{style:{}}};
+const empty=()=>({handles:()=>false,handlesChange:()=>false,afterRender(){},suspend(){},restore(){},syncQuery(){},resetDay(){},active:()=>false,barHTML:()=>'',read(){},prepare(){}});
+const ctx={document,console,Date,Math,JSON,Number,String,Set,Map,URL,URLSearchParams,Promise,Error,state:{tracking:{version:1},authenticated:true},page:'statistics',modal:{open:false},requestAnimationFrame:()=>0,setTimeout:()=>0,clearTimeout(){},addEventListener(){},openModal(){},api:(path)=>{calls.push(path);return ++requests===1?first.promise:immediate?Promise.resolve(data):late.promise;},HotTurkeyReportUI:{create:empty},HotTurkeyTags:{create:empty},HotTurkeyTimesheetUI:{create:empty},HotTurkeyAutoTagsUI:{create:empty},HotTurkeyClockUI:{create:empty},HotTurkeyMedia:{create:empty}};
+ctx.window=ctx;vm.createContext(ctx);vm.runInContext(fs.readFileSync('web/tracking-day-data.js','utf8'),ctx);vm.runInContext(fs.readFileSync('web/tracking.js','utf8'),ctx);
+const row=(id,timeline,title,app,bundle,url='')=>({id,timeline,title,application:app,bundle,url,group_name:timeline==='documents'?'course.invalid':app,start:100,end:200,seconds:100,color:'#007aff',source:'recorded'});
+const data={since:0,until:86400,activities:[row('edge','applications','Course title','Microsoft Edge','com.microsoft.edgemac'),row('doc','documents','Course title','Microsoft Edge','com.microsoft.edgemac','https://course.invalid/full/path')],tag_ranges:[],settings:{enabled:true,paused_until:0,snap_minutes:1},status:{connected:true},totals:{active:100,selected:0,first:100,last:200}};
+(async()=>{
+ assert.equal(calls.length,1);const initial=ctx.HotTurkeyTracking.refresh();assert.equal(calls.length,1,'entrypoint and navigation must share their initial request');first.resolve(data);await initial;
+ const model=ctx.HotTurkeyTracking.model;assert.equal(model.timeline,'documents');assert.equal(model.chronological,false);assert.equal(model.detailSort.key,'seconds');assert.equal(model.detailSort.direction,'desc');
+ const summarySelect=root.innerHTML.match(/<select id="mt-summary-kind"[^>]*>([\s\S]*?)<\/select>/)[1];assert(!summarySelect.includes('value="documents"'),'summary menu excludes documents');
+ const detail=()=>{for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'detailed-urls'}})}});};
+ detail();assert.equal(model.detailedURLs,true);detail();assert.equal(model.detailedURLs,false);assert(root.innerHTML.includes('data-mt="detailed-urls" aria-pressed="false"'));
+ const mode=()=>{for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'chronological'}})}});};
+ mode();assert.equal(model.chronological,true);assert.equal(model.detailSort.key,'start');assert.equal(model.detailSort.direction,'asc');
+ mode();assert.equal(model.chronological,false);assert.equal(model.detailSort.key,'seconds');assert.equal(model.detailSort.direction,'desc');
+ assert(root.innerHTML.indexOf('mt-summary-pane')<root.innerHTML.indexOf('mt-detail-pane'));assert.equal(ctx.HotTurkeyTracking.model.data.details.length,1);
+ for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'group',kind:'applications',index:'0'}})}});
+ await Promise.resolve();assert.equal(calls.length,1,'application selection must not fetch another day');assert.equal(ctx.HotTurkeyTracking.model.timeline,'documents');assert(root.innerHTML.includes('course.invalid'));assert.equal(ctx.HotTurkeyTracking.model.data.details[0].domain,'course.invalid');
+ for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'timeline',value:'applications'}})}});
+ await Promise.resolve();assert.equal(calls.length,1);assert.equal(ctx.HotTurkeyTracking.model.selection[0][0],100);assert(root.innerHTML.includes('Course title'));
+ immediate=true;data.activities.find(v=>v.id==='doc').title='GPT notes';
+ data.activities.push({...row('word-app','applications','Word','Word','com.microsoft.Word'),start:300,end:360,seconds:60},
+  {...row('word-doc','documents','GPT report.docx','Word','com.microsoft.Word'),start:300,end:360,seconds:60,document:'/work/GPT report.docx'},
+  row('chrome','applications','Chrome','Chrome','com.google.Chrome'));
+ data.filtered_ids=['doc','word-doc'];model.timeline='documents';model.query='GPT';await ctx.HotTurkeyTracking.refresh();
+ const beforeOwnerClick=calls.length;for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'group',kind:'applications',index:'1'}})}});
+ assert.equal(model.appScope.bundle,'com.microsoft.Word');assert.equal(model.timeline,'documents');assert.equal(model.query,'GPT');assert.equal(model.data.details[0].title,'GPT report.docx');assert.equal(calls.length,beforeOwnerClick,'document-owner selection keeps the filter locally');
+ assert(root.innerHTML.includes('0:01:00 / 0:02:40'),'summary footer compares selected and full matching time');
+ model.queries.applications='private';model.queryError='stale';const beforeRestore=calls.length;
+ for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'fit'}})}});
+ assert.equal(model.query,'');assert.equal(Object.keys(model.queries).length,0);assert.equal(model.appScope,null);assert.equal(model.selection.length,0);assert.equal(model.queryError,'');assert.equal(model.data.details.length,2);assert.equal(calls.length,beforeRestore,'restore uses complete local data without another request');assert(root.innerHTML.includes('0:00:00 / 0:02:40'),'summary footer starts at zero over full-day use');
+ const footer=root.innerHTML.slice(root.innerHTML.indexOf('<div class="mt-filter">'),root.innerHTML.indexOf('<div class="mt-status">'));assert(footer.includes('mt-query-field'));assert(!footer.includes('data-mt="export"'));assert(!footer.includes('data-mt="find-open"'));
+ immediate=false;
+ const pending=ctx.HotTurkeyTracking.refresh();ctx.state.authenticated=false;ctx.HotTurkeyTracking.hidePrivateViews();late.resolve(data);await pending;assert.equal(ctx.HotTurkeyTracking.model.data,null);
+ console.log('5 day startup race, request deduplication, local navigation and privacy checks passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

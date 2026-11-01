@@ -4,6 +4,7 @@ Requires the macOS GUI session and build/HotTurkeyInterfaceFixture from --qa.
 The fixture bundle deliberately has no backend runtime to start on disconnect.
 """
 import argparse
+import os
 import json
 import plistlib
 import shutil
@@ -84,10 +85,11 @@ def main():
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--forms',action='store_true',help='Audit form sheets and keyboard/input behavior')
     modes.add_argument('--files',action='store_true',help='Audit real native file panels and file transfers')
+    modes.add_argument('--tracking',action='store_true',help='Audit interval Day/Details/Summary and screenshot UI')
     modes.add_argument('--icons',action='store_true',help='Audit real local application icons in usage statistics')
     modes.add_argument('--transitions',action='store_true',help='Audit the first visible editor frame from both toolbar plus buttons')
     args=parser.parse_args()
-    kind='icons' if args.icons else 'transitions' if args.transitions else 'files' if args.files else 'forms' if args.forms else 'interface'
+    kind='tracking' if args.tracking else 'icons' if args.icons else 'transitions' if args.transitions else 'files' if args.files else 'forms' if args.forms else 'interface'
     binary=ROOT/'build'/f'HotTurkey{kind.title()}Fixture'
     assert binary.is_file(),'Build the interface fixture first with scripts/build.py --qa'
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-interface-') as temporary:
@@ -112,6 +114,22 @@ def main():
             targets=[name for name,path in icon_samples if Path(path).exists()]+['Uninstalled application icon fixture']
             for index,name in enumerate(targets):service.store.event(time.time()-60,'演示账户','application',name,seconds=600-index*20,blocked=index%2==0)
             service.store.event(time.time()-60,'演示账户','website','chatgpt.com',seconds=30)
+        if args.tracking:
+            import datetime as dt,base64,struct,zlib
+            from hotturkey.tracking import day_bounds
+            start,end=day_bounds('2026-10-28')
+            for timeline,a,b,title,group in [('computer',9,10,'Active','Active'),('computer',10,10.25,'Away','Away'),('computer',10.25,12,'Active','Active'),
+                ('applications',9,10,'Draft document','Fixture Editor'),('applications',10.25,11,'Research page','Fixture Browser'),('applications',11,12,'Notes','Fixture Notes'),
+                ('documents',9,10,'Draft document','draft.txt'),('documents',10.25,11,'Research page','research.invalid')]:
+                service.tracking.add_activity({'timeline':timeline,'start':start+a*3600,'end':start+b*3600,'title':title,'group_name':group,'application':group if timeline=='applications' else ''})
+            service.tracking.save_tag({'start':start+9*3600,'end':start+9.75*3600,'tags':['Study'],'billable':True})
+            shot_directory=service.store.directory/'screenshots/2026-10-28';shot_directory.mkdir(parents=True,mode=0o700);shot_directory.parent.chmod(0o700)
+            chunk=lambda kind,data:struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
+            png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',32,20,8,2,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes([30,130,220])*32)*20))+chunk(b'IEND',b'')
+            for ident,hour,display,width,height,rgb in [('a',9.5,'main',32,20,[30,130,220]),('b',10.5,'main',1024,640,[30,180,90]),('c',9.5,'secondary',64,40,[240,140,40])]:
+                png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,2,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes(rgb)*width)*height))+chunk(b'IEND',b'')
+                image=shot_directory/(ident*32+'.png');image.write_bytes(png);image.chmod(0o600)
+                service.tracking.add_screenshot({'id':ident*32,'at':start+hour*3600,'display':display,'file':'2026-10-28/'+image.name,'width':width,'height':height,'application':'Fixture Editor','title':'Synthetic screenshot','document':'file:///fixture.txt'})
         thread=threading.Thread(target=service.http.serve_forever);thread.start()
         try:
             app=directory/f'HotTurkey {kind.title()} QA.app';contents=app/'Contents'
@@ -129,11 +147,19 @@ def main():
             (contents/'Info.plist').write_bytes(plistlib.dumps(info))
             subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(app)],check=True,capture_output=True)
             subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(app)],check=True,capture_output=True)
-            command=['/usr/bin/open','-W','-n','-a',str(app),'--args',str(directory)] if args.files else [str(executable),str(directory)]
-            result=subprocess.run(command,capture_output=True,text=True,timeout=560 if args.files else 100)
+            command=['/usr/bin/open','-W','-n','-a',str(app),'--args',str(directory)] if args.files or args.tracking else [str(executable),str(directory)]
+            if args.tracking:
+                extra=[]
+                for name in ['HT_QA_MANUAL_ACTIVATION','HT_QA_CONFIRM_EXPORTS']:
+                    if os.environ.get(name)=='1':extra.extend(['--env',name+'=1'])
+                command[command.index('--args'):command.index('--args')]=extra
+            timeout=560 if args.files else 190 if args.tracking and os.environ.get('HT_QA_MANUAL_ACTIVATION')=='1' else 100
+            result=subprocess.run(command,capture_output=True,text=True,timeout=timeout)
             (ROOT/'build'/f'native-{kind}-process.log').write_text(result.stderr[-6000:]+result.stdout[-2000:])
             desktop_log=service.store.directory/'desktop.log'
             if desktop_log.exists():shutil.copy2(desktop_log,ROOT/'build'/f'native-{kind}-desktop.log')
+            progress=output/f'native-{kind}-progress.log'
+            if progress.exists():shutil.copy2(progress,ROOT/'build'/progress.name)
             if args.files:
                 for source in [output/'native-files-phase.txt',service.store.directory/'desktop.log']:
                     if source.exists():shutil.copy2(source,ROOT/'build'/('native-files-'+source.name))
@@ -145,7 +171,14 @@ def main():
             build=ROOT/'build';build.mkdir(exist_ok=True)
             (build/f'native-{kind}-proof.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2))
             for screenshot in output.glob('*.png'):shutil.copy2(screenshot,build/screenshot.name)
-            if args.icons:
+            if args.tracking:
+                for name in ['report-export.csv','report-export.xlsx','report-export.jpg']:
+                    exported=output/name
+                    if exported.is_file():shutil.copy2(exported,build/name)
+            if args.tracking:
+                assert proof['passed'],proof.get('error')
+                assert proof['synthetic_screenshots_only'] and len(proof['checks'])>=15 and all(value is True for value in proof['checks'].values())
+            elif args.icons:
                 assert proof['passed'],proof.get('error')
                 assert proof['real_installed_application_count']>0
                 assert len(proof['checks'])>=20 and all(value is True for value in proof['checks'].values())
@@ -156,7 +189,7 @@ def main():
             print(json.dumps(proof,ensure_ascii=False))
         finally:
             service.http.shutdown();service.http.server_close();thread.join(timeout=5)
-            service.store.db.close();service.singleton.close()
+            service.tracking.close();service.store.db.close();service.singleton.close()
             assert not thread.is_alive()
 
 

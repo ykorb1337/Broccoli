@@ -165,6 +165,6 @@ final class DesktopSheet: NSObject, NSWindowDelegate {
         }
         panel.orderOut(nil); self.panel = nil
         placeholder?.removeFromSuperview(); placeholder = nil
-        web?.evaluateJavaScript("document.documentElement.classList.remove('native-sheet')")
+        web?.evaluateJavaScript("document.documentElement.classList.remove('native-sheet'); window.HotTurkeyModal?.restore(); true")
     }
 }

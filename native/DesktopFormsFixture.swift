@@ -86,6 +86,26 @@ import Darwin
         d.show()
         try await wait("Test window did not activate") { NSApp.isActive && self.d.window.isKeyWindow }
         try await waitJS("Object.keys(categories).length>0")
+        guard d.window.toolbar?.items.allSatisfy({ $0.itemIdentifier != .sidebarTrackingSeparator }) == true else { throw fail("Unexpected titlebar divider") }
+        checks["titlebar_has_no_stray_tracking_separator"] = true
+        d.appearance.showPage("settings")
+        try await waitJS("document.body.dataset.view==='settings'")
+        for action in ["device-recovery-configure","device-emergency","settings-password"] {
+            for method in ["cancel-button","escape","close-button"] {
+                try await js("const button=document.querySelector('main [data-action=\(action)]');button.scrollIntoView({block:'center'});button.focus({preventScroll:true});await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));window.__settingsReturnY=scrollY;window.__settingsReturnButton=button;button.click();")
+                try await panel()
+                if method == "escape" { d.window.attachedSheet?.cancelOperation(nil) }
+                else { try await js(method == "cancel-button" ? "[...document.querySelectorAll('.modal-footer [data-action=close]')].find(el=>el.textContent.includes('取消')).click();" : "document.querySelector('.modal-head [data-action=close]').click();") }
+                try await wait("Cancel did not return to settings") { self.d.window.attachedSheet == nil && self.d.web.window === self.d.window }
+                try await waitJS("!document.documentElement.classList.contains('native-sheet')&&Math.abs(scrollY-window.__settingsReturnY)<2")
+                try await check("window.__settingsReturnY>100&&document.activeElement===window.__settingsReturnButton", "settings_\(action)_\(method)_keeps_position_and_focus")
+            }
+        }
+        try await js("document.querySelector('main [data-action=device-emergency]').click();")
+        try await panel()
+        try await check("modal.textContent.includes('不会提前跳过下一次计划')&&modal.textContent.includes('网站与应用拦截也保持生效')&&document.querySelector('[data-action=device-emergency-submit]').disabled", "emergency_scope_and_inactive_state_are_explicit")
+        try await close()
+        try await js("window.scrollTo(0,0);document.querySelector('nav [data-page=blocks]').click();")
         try await js("deviceWizard();")
         try await panel()
         try await check(#"""

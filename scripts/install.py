@@ -101,7 +101,7 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
         for folder in ['hotturkey','web','extension']:
             shutil.copytree(ROOT/folder,staged_runtime/folder,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         (staged_runtime/'build').mkdir()
-        for name in ['HotTurkeyAgent','HotTurkeyPeerCheck']:
+        for name in ['HotTurkeyAgent','HotTurkeyPeerCheck','HotTurkeyTracker']:
             if (ROOT/'build'/name).exists():shutil.copy2(ROOT/'build'/name,staged_runtime/'build'/name)
         if not (staged_runtime/'build/HotTurkeyAgent').exists():raise ValueError('先构建 HotTurkey 应用与执行器')
         if not same_app:shutil.copytree(app_source,stage/'new.app',symlinks=True)

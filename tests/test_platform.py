@@ -19,7 +19,7 @@ class NativeTransportTests(unittest.TestCase):
         self.stop=threading.Event()
 
     def helper(self,code):
-        process=subprocess.Popen([sys.executable,'-u','-c',code],stdin=subprocess.PIPE,stdout=subprocess.PIPE,bufsize=0)
+        process=subprocess.Popen([sys.executable,'-B','-u','-c',code],stdin=subprocess.PIPE,stdout=subprocess.PIPE,bufsize=0)
         self.processes.append(process)
         return process
 

@@ -32,6 +32,10 @@ class Service:
         self.store=Store(directory)
         from .platform_macos import boot_id
         self.engine=Engine(self.store,boot_id=boot_id())
+        self.tracking=None;self.tracking_recorder=None;self.tracking_error=''
+        self.tracking_initialization_lock=threading.Lock()
+        self.initialize_tracking()
+        self.engine.statistics_filter=lambda data:bool(self.tracking_recorder and self.tracking_recorder.legacy_allowed(data))
         from .tab_exceptions import TabExceptions
         self.tab_exceptions=TabExceptions(self.engine)
         if enforce:
@@ -53,6 +57,7 @@ class Service:
         try:self.http=ThreadingHTTPServer(("127.0.0.1",port),self.handler())
         except Exception:
             self.singleton.close()
+            if self.tracking:self.tracking.close()
             self.store.db.close()
             raise
         self.http.daemon_threads=True
@@ -66,6 +71,25 @@ class Service:
         os.chmod(temp,0o600)
         temp.replace(path)
 
+    def initialize_tracking(self):
+        """A damaged statistics database must not stop the policy service."""
+        with self.tracking_initialization_lock:
+            if self.tracking is not None:return True
+            tracking=None
+            try:
+                from .tracking import TrackingStore
+                from .tracking_recorder import TrackingRecorder
+                tracking=TrackingStore(self.store)
+                tracking.import_legacy()
+                recorder=TrackingRecorder(tracking)
+                self.tracking=tracking;self.tracking_recorder=recorder;self.tracking_error=''
+                return True
+            except Exception:
+                if tracking is not None:tracking.close()
+                self.tracking_error='无法打开统计资料。请检查资料文件与磁盘空间，然后重试。'
+                LOG.exception('Statistics unavailable; enforcement service remains active')
+                return False
+
     def handler(self):
         service=self
         class Handler(BaseHTTPRequestHandler):
@@ -78,7 +102,7 @@ class Service:
                 self.send_header("Cache-Control","no-store")
                 self.send_header("X-Content-Type-Options","nosniff")
                 self.send_header("Referrer-Policy","no-referrer")
-                self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
                 self.end_headers()
                 try: self.wfile.write(payload)
                 except (BrokenPipeError,ConnectionResetError): pass
@@ -100,10 +124,11 @@ class Service:
                         data=decode_json(self.rfile.read(size))
                         if not isinstance(data,dict): raise PolicyError("请求格式无效")
                     value=service.api(parsed.path,self.command,data,parse_qs(parsed.query),self.headers)
+                    if isinstance(value,tuple) and len(value)==2 and isinstance(value[0],bytes):return self.respond(200,value[0],value[1])
                     return self.respond(200,value)
                 if self.command!="GET": return self.respond(405,{"error":"Method not allowed"})
                 path="index.html" if parsed.path=="/" else parsed.path.lstrip("/")
-                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","text-size.js":"application/javascript","appearance.js":"application/javascript","style.css":"text/css","icon.svg":"image/svg+xml"}
+                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","text-size.js":"application/javascript","appearance.js":"application/javascript","style.css":"text/css","tracking.js":"application/javascript","tracking-export.js":"application/javascript","tracking-find.js":"application/javascript","tracking-day-data.js":"application/javascript","public-suffixes.js":"application/javascript","tracking-clock.js":"application/javascript","tracking-autotags.js":"application/javascript","tracking-timesheet.js":"application/javascript","tracking-timesheet-usage.js":"application/javascript","tracking-clipboard.js":"application/javascript","tracking-tags.js":"application/javascript","tracking-media.js":"application/javascript","tracking-report-ui.js":"application/javascript","tracking-chart.js":"application/javascript","tracking-schedule.js":"application/javascript","tracking.css":"text/css","icon.svg":"image/svg+xml"}
                 if path not in allowed: return self.respond(404,{"error":"Not found"})
                 return self.respond(200,(ROOT/"web"/path).read_bytes(),allowed[path])
             def do_GET(self):
@@ -125,6 +150,14 @@ class Service:
 
     def api(self,path,method,data,query,headers):
         e=self.engine
+        if path.startswith('/api/tracking/'):
+            if not self.authorized(headers):raise PolicyError('请先输入设置密码')
+            if path=='/api/tracking/retry' and method=='POST':
+                if not self.initialize_tracking():raise PolicyError(self.tracking_error)
+                return {'ok':True}
+            if self.tracking is None:raise PolicyError(self.tracking_error)
+            from .tracking_api import dispatch
+            return dispatch(self,path[len('/api/tracking/'):],method,data,query)
         if path=='/api/device/recover' and method=='POST':
             if data.get('stop_plan',False) and not self.authorized(headers):raise PolicyError('紧急停用计划需要管理验证；仍可用安全词放行本次时段')
             return e.recover_device(data.get('word'),data.get('stop_plan',False))
@@ -161,6 +194,9 @@ class Service:
             browser=str(data.get("browser","unknown"))[:120]
             e.heartbeats[browser]={"at":e.now(),"incognito":bool(data.get("incognito_allowed")),"files":bool(data.get("files_allowed"))}
             for item in data.get("usage",[])[:200]:
+                if self.tracking_recorder:
+                    try:self.tracking_recorder.browser_sample(browser,item)
+                    except Exception:LOG.warning('A statistics browser sample was discarded')
                 scoped={'context':data['context'],'tab':item.get('tab')} if 'context' in data else {}
                 e.usage(item,"browser:"+browser+":"+str(data.get("context","legacy"))+":"+str(item.get("tab",0)),self.tab_exceptions.ids(scoped))
             with self.store.lock:
@@ -192,7 +228,9 @@ class Service:
             helper=self.agent_process
             snapshot["enforcement"]={"enabled":self.enforce,"worker_error":self.worker_error,"status":self.worker_state,"helper_restarts":max(0,self.helper_starts-1),"desktop_connected":self.worker_state=="running" and helper is not None and helper.poll() is None and self.desktop_at>time.monotonic()-10,"launch_agent":(Path.home()/"Library/LaunchAgents/local.hotturkey.service.plist").exists()}
             snapshot["authenticated"]=self.authorized(headers)
+            snapshot['tracking']={'version':1,'available':self.tracking is not None,'error':self.tracking_error,'connected':bool(self.tracking_recorder and self.tracking_recorder.status['connected'])}
             snapshot['enforcement']['extension_path']=str(ROOT/'extension')
+            snapshot['enforcement']['recovery_input_protocol']=getattr(self,'device_recovery_protocol',0)
             if not self.authorized(headers) and self.store.state["settings"]["protect_overview"]:
                 snapshot["blocks"]=[]
             return snapshot
@@ -277,12 +315,35 @@ class Service:
                 while not self.stop.wait(1): self.engine.tick()
         worker_thread=threading.Thread(target=worker,daemon=True)
         worker_thread.start()
+        def track():
+            while not self.stop.is_set():
+                recorder=self.tracking_recorder
+                if recorder:
+                    recorder.run(self.stop,ROOT/'build/HotTurkeyTracker')
+                    return
+                if self.stop.wait(1):return
+        tracker_thread=threading.Thread(target=track,daemon=True) if self.enforce else None
+        if tracker_thread:tracker_thread.start()
+        def clocks():
+            # Manual clocks keep time even when the sampling helper is absent
+            # or the desktop window is closed. Policy enforcement has no wait
+            # or failure dependency on this statistics worker.
+            while not self.stop.is_set():
+                tracking=self.tracking
+                if tracking:
+                    try:tracking.clock.tick()
+                    except Exception:LOG.exception('Manual tag clock tick failed')
+                if self.stop.wait(1):return
+        clock_thread=threading.Thread(target=clocks,daemon=True);clock_thread.start()
         LOG.info("HotTurkey listening on loopback port %d; enforcement=%s",self.port,self.enforce)
         try: self.http.serve_forever()
         finally:
             self.stop.set()
             self.http.server_close()
             worker_thread.join(timeout=5)
+            if tracker_thread:tracker_thread.join(timeout=6)
+            clock_thread.join(timeout=5)
+            if self.tracking:self.tracking.close()
             self.singleton.close()
 
 def main():

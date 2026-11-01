@@ -137,7 +137,7 @@ class SystemDecisions:
             command={'kill':commands};self.pending_device=None
             if has_power and console in engines:
                 engine=engines[console];gate=self.gate.update(console,wake)
-                if gate and gate['phase']=='sleep' and engine.now()-self.device_last.get(console,0)>=2:
+                if self.gate.permitted(console) and engine.now()-self.device_last.get(console,0)>=2:
                     self.device_last[console]=engine.now()
                     self.pending_device={'id':secrets.token_hex(32),'uid':console,'action':'sleep'}
                     command['device']=dict(self.pending_device)

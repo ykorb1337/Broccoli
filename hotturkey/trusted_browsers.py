@@ -73,10 +73,11 @@ class TrustedBrowsers:
             if not isinstance(usage,list) or len(usage)>200:raise PolicyError('使用采样过多')
             seen=set()
             for item in usage:
-                if not isinstance(item,dict) or set(item)-{'tab','url','active','idle','playing','incognito','channels'}:raise PolicyError('使用采样无效')
+                if not isinstance(item,dict) or set(item)-{'tab','url','title','active','idle','playing','incognito','channels'}:raise PolicyError('使用采样无效')
                 scope({'context':data['context'],'tab':item.get('tab')})
                 if item['tab'] in seen or item['tab'] not in tabs:raise PolicyError('使用采样标签页无效')
                 seen.add(item['tab']);text(item.get('url'));channels(item.get('channels',[]))
+                if 'title' in item:text(item['title'],4096)
                 boolean_fields(item,['active','playing','incognito'])
                 idle=item.get('idle',0)
                 if type(idle) not in {int,float} or not math.isfinite(idle) or idle<0:raise PolicyError('闲置采样无效')

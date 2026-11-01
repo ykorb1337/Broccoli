@@ -30,7 +30,7 @@ final class AgentCommands {
             }
             // Keep the emergency field and its fail-open timeout responsive
             // even if the parent stops producing commands.
-            RunLoop.current.run(until:Date(timeIntervalSinceNow:0.05))
+            SleepGuardUI.pumpEvents(until:Date(timeIntervalSinceNow:0.05))
         }
         return nil
     }
@@ -110,8 +110,9 @@ while true {
             }
         }
         let idle = [CGEventType.mouseMoved,.keyDown,.leftMouseDown,.scrollWheel].map { CGEventSource.secondsSinceLastEventType(.combinedSessionState,eventType:$0) }.min() ?? 0
-        var sample:[String:Any]=["apps":apps,"front":front.map(info) ?? [:],"idle":idle.isFinite ? idle : 0,"signin":signin]
+        var sample:[String:Any]=["apps":apps,"front":front.map(info) ?? [:],"idle":idle.isFinite ? idle : 0,"signin":signin,"recovery_protocol":2]
         if let word=sleepGuard.takeWord() { sample["recovery_word"]=word }
+        if let readiness=sleepGuard.readiness() { sample["recovery_ui"]=readiness }
         emit(sample)
         signin = false
         guard let command=commands.next() else { exit(0) }
@@ -126,12 +127,18 @@ while true {
         }
         previousKills=Set(requested)
         sleepGuard.render(command["sleep_guard"],recovery:command["recovery_result"])
-        if let action = command["device"] as? String { deviceAction(action) }
+        // Apply queued keyboard/IME events before considering a device command
+        // derived from the previous sample's readiness lease.
+        SleepGuardUI.pumpEvents(until:Date(timeIntervalSinceNow:0.02))
+        if let action = command["device"] as? String,sleepGuard.canRestrict(action) { deviceAction(action) }
+        for notice in command["sleep_notifications"] as? [[String:String]] ?? [] {
+            DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("local.hotturkey.sleep-notice"),object:nil,userInfo:notice,deliverImmediately:true)
+        }
         for notice in command["notifications"] as? [String] ?? [] {
             DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("local.hotturkey.notice"),object:notice,userInfo:nil,deliverImmediately:true)
         }
     }
-    RunLoop.current.run(until:Date(timeIntervalSinceNow:1))
+    SleepGuardUI.pumpEvents(until:Date(timeIntervalSinceNow:1))
 }
 }
 }

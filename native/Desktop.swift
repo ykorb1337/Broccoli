@@ -10,6 +10,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var base: URL!
     var dataDirectory: URL!
     var notices: NSObjectProtocol?
+    var sleepNotices: NSObjectProtocol?
     var retries = 0
     var loadingLabel: NSTextField!
     var navigationGeneration = 0
@@ -18,6 +19,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var navigationFinished = false
     var currentNavigation: WKNavigation?
     var installation: Process?
+    var trackingPermissionProcess: Process?
     var connectionPending = false
     var systemMode = false
     let appearance = DesktopAppearance()
@@ -25,7 +27,15 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var fileDialogs: DesktopFiles!
     private var desktopIconLoaded = false
     let applicationIcons = DesktopAppIcons()
+    let trackingMedia = DesktopTrackingMedia()
     var activeOrigin: URL?
+    private var activeToken: String?
+    private var trackingMediaGeneration = 0
+    var filePresentationWindow: NSWindow? {
+        if let viewer=trackingMedia.viewer,viewer.isKeyWindow { return viewer }
+        if let editor=appearance.presentationWindow,editor !== window { return editor }
+        return window
+    }
     let probeSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.connectionProxyDictionary = [:]
@@ -69,7 +79,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         window.minSize = NSSize(width:920,height:650)
         window.title = "HotTurkey"
         window.contentView = web
-        fileDialogs = DesktopFiles(parent: { [weak self] in self?.appearance.presentationWindow ?? self?.window },
+        fileDialogs = DesktopFiles(parent: { [weak self] in self?.filePresentationWindow },
                                    event: { [weak self] in self?.desktopLog($0) })
         appearance.web = web
         loadingLabel = NSTextField(labelWithString:"正在连接本地后台…")
@@ -84,6 +94,11 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         notices = DistributedNotificationCenter.default().addObserver(forName:NSNotification.Name("local.hotturkey.notice"),object:nil,queue:.main) { note in
             let content = UNMutableNotificationContent(); content.title = "HotTurkey"; content.body = note.object as? String ?? ""
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier:UUID().uuidString,content:content,trigger:nil))
+        }
+        sleepNotices = DistributedNotificationCenter.default().addObserver(forName:NSNotification.Name("local.hotturkey.sleep-notice"),object:nil,queue:.main) { note in
+            guard let id=note.userInfo?["id"] as? String,let body=note.userInfo?["body"] as? String else{return}
+            let content=UNMutableNotificationContent();content.title="睡眠提醒";content.body=body;content.sound = .default;content.categoryIdentifier="HotTurkey.SleepReminder"
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier:"sleep-"+id,content:content,trigger:nil))
         }
         connect()
         if !CommandLine.arguments.contains("--login") { show() }
@@ -122,6 +137,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             loadingLabel.stringValue = "正在加载专注空间…"
             loadingLabel.isHidden = false
             activeOrigin = URL(string:"http://127.0.0.1:\(port)")!
+            activeToken = token
             currentNavigation = web.load(URLRequest(url:URL(string:"http://127.0.0.1:\(port)/#token=\(token)")!))
             desktopLog("loading")
             DispatchQueue.main.asyncAfter(deadline:.now()+4) {
@@ -171,6 +187,8 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     }
     func recoverNavigation(_ reason:String) {
         appearance.cancelEditor()
+        trackingMediaGeneration += 1
+        trackingMedia.close()
         if navigationRecoveryPending { return }
         navigationGeneration += 1
         navigationRecoveries += 1
@@ -199,8 +217,77 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         guard frame.isMainFrame, let origin = activeOrigin else { return false }
         return frame.securityOrigin.protocol == "http" && frame.securityOrigin.host == origin.host && frame.securityOrigin.port == origin.port
     }
+    private func handleTrackingMedia(_ body:[String:Any],request:String) {
+        let generation=navigationGeneration,action=body["action"] as? String ?? ""
+        let complete:([String:Any])->Void = { [weak self] result in
+            guard let self,self.navigationGeneration==generation,let data=try? JSONSerialization.data(withJSONObject:result.merging(["request":request]){old,_ in old}),let json=String(data:data,encoding:.utf8) else{return}
+            self.trackingMedia.synchronize(appearance:self.window.appearance,textScale:self.appearance.textScale)
+            self.web.evaluateJavaScript("window.HotTurkeyMediaBridge?.receive(\(json));true")
+        }
+        trackingMedia.command = { [weak self] op in
+            guard let data=try? JSONSerialization.data(withJSONObject:[op]),let json=String(data:data,encoding:.utf8) else{return}
+            self?.web.evaluateJavaScript("window.HotTurkeyTracking?.mediaAction(\(json)[0]);true")
+        }
+        trackingMedia.closed = { [weak self] in
+            self?.trackingMediaGeneration += 1
+            self?.web.evaluateJavaScript("window.HotTurkeyTracking?.mediaClosed();true")
+        }
+        let picture=action=="window" || action=="update" || action=="close"
+        if picture { trackingMediaGeneration += 1 }
+        let mediaGeneration=trackingMediaGeneration
+        if action=="close" { trackingMedia.close();complete(["ok":true]);return }
+        guard ["window","update","copy","open","open-with"].contains(action),let id=body["id"] as? String,
+              id.range(of:#"^[a-f0-9]{32}$"#,options:.regularExpression) != nil,
+              let session=body["session"] as? String,session.range(of:#"^[A-Za-z0-9_-]{0,512}$"#,options:.regularExpression) != nil,
+              let origin=activeOrigin,let token=activeToken,
+              let url=URL(string:"/api/tracking/screenshots/location?id=\(id)",relativeTo:origin)?.absoluteURL else {
+            complete(["ok":false,"error":"图片操作无效"]);return
+        }
+        // The server rechecks the current settings-password session and resolves
+        // the registered ID. JavaScript cannot grant access with a file path.
+        var check=URLRequest(url:url,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:5)
+        check.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization");check.setValue(session,forHTTPHeaderField:"X-HotTurkey-Session")
+        probeSession.dataTask(with:check) { [weak self] data,response,_ in
+            let file=data.flatMap{try? JSONSerialization.jsonObject(with:$0)} as? [String:Any]
+            DispatchQueue.main.async {
+                guard let self,self.navigationGeneration==generation else{return}
+                if picture && self.trackingMediaGeneration != mediaGeneration { complete(["ok":true,"cancelled":true]);return }
+                guard (response as? HTTPURLResponse)?.statusCode==200,let relative=file?["file"] as? String else {
+                    complete(["ok":false,"error":"无法读取截图，请先解锁管理界面或重新连接后台"]);return
+                }
+                var verified=body;verified["file"]=relative
+                self.trackingMedia.handle(verified,directory:self.dataDirectory,parent:self.filePresentationWindow ?? self.window,completion:complete)
+            }
+        }.resume()
+    }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard trustedFrame(message.frameInfo) else { return }
+        if let body=message.body as? [String:Any],body["op"] as? String=="tracking-copy",
+           let request=body["request"] as? String,request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil,
+           let text=body["text"] as? String,text.utf8.count<=4*1024*1024 {
+            NSPasteboard.general.clearContents()
+            let ok=NSPasteboard.general.setString(text,forType:.string)
+            if let data=try? JSONSerialization.data(withJSONObject:["request":request,"ok":ok]),let json=String(data:data,encoding:.utf8) {
+                web.evaluateJavaScript("window.HotTurkeyClipboard?.receive(\(json));true")
+            }
+            return
+        }
+        if let body=message.body as? [String:Any],body["op"] as? String=="tracking-media",let request=body["request"] as? String,
+           request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil {
+            handleTrackingMedia(body,request:request)
+            return
+        }
+        if let body = message.body as? [String:Any], body["op"] as? String == "tracking-permission", let kind = body["kind"] as? String, ["screen","accessibility"].contains(kind) {
+            guard Bundle.main.object(forInfoDictionaryKey:"HotTurkeyDataDirectory") == nil, trackingPermissionProcess == nil else { return }
+            let runtime = dataDirectory.appendingPathComponent("runtime/build/HotTurkeyTracker")
+            let helper = FileManager.default.isExecutableFile(atPath:runtime.path) ? runtime : base.appendingPathComponent("build/HotTurkeyTracker")
+            guard FileManager.default.isExecutableFile(atPath:helper.path) else { showError("统计采样组件尚未安装。"); return }
+            let process = Process(); process.executableURL = helper
+            process.arguments = [kind == "screen" ? "--request-screen-permission" : "--request-accessibility"]
+            process.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.trackingPermissionProcess = nil; self?.web.evaluateJavaScript("window.HotTurkeyTracking?.refresh(); true") } }
+            do { try process.run(); trackingPermissionProcess = process } catch { showError("无法打开统计权限设置。"); }
+            return
+        }
         if let body = message.body as? [String:Any], body["op"] as? String == "application-icons", let targets = body["targets"] as? [String] {
             let generation = navigationGeneration
             applicationIcons.request(targets) { [weak self] icons in
@@ -212,6 +299,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             return
         }
         if let body = message.body as? [String:Any], body["op"] as? String == "present-editor" {
+            if trackingMedia.viewer?.isKeyWindow == true { window.makeKeyAndOrderFront(nil) }
             if nativeChromeInstalled { appearance.presentEditor() }
             else { web.evaluateJavaScript("window.HotTurkeySheet?.fallback()") }
             return
@@ -229,6 +317,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
                 desktopLog("native interface ready")
             }
             appearance.update(body)
+            trackingMedia.synchronize(appearance:window.appearance,textScale:appearance.textScale)
             return
         }
         if let body = message.body as? [String:Any], body["op"] as? String == "install" {

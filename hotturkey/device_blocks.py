@@ -1,5 +1,13 @@
 """Deterministic device-rule selection; never performs a device action."""
+import math
+
 PRIORITY={'lock':0,'sleep':1,'logout':2,'shutdown':3}
+
+
+def valid_recovery_ui(value):
+    return (isinstance(value,dict) and set(value)=={'until','action','ready'} and type(value['ready']) is bool
+            and isinstance(value['action'],str) and value['action'] in PRIORITY and type(value['until']) in {int,float}
+            and math.isfinite(value['until']) and 0<value['until']<=2**53)
 
 
 def selected_device(engine,actions=None):
@@ -38,3 +46,15 @@ class SleepGate:
         remaining=max(0,current['grace']-engine.now())
         return {'until':current['until'],'grace_remaining':remaining,'phase':'countdown' if remaining>0 else 'sleep','action':current['action'],
                 'recovery_configured':bool(engine.store.state['settings']['device_recovery_hash'])}
+
+    def confirm_ui(self,uid,value):
+        current=self.contexts.get(uid)
+        if current is None:return
+        current.pop('ready_at',None)
+        if (valid_recovery_ui(value) and value['ready'] and value['until']==current['until'] and value['action']==current['action']):
+            current['ready_at']=self.resolve(uid).now()
+
+    def permitted(self,uid):
+        current=self.contexts.get(uid);status=self.status(uid)
+        return bool(current and status and status['phase']=='sleep' and 'ready_at' in current
+                    and 0<=self.resolve(uid).now()-current['ready_at']<=3)

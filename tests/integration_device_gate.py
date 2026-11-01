@@ -75,11 +75,12 @@ def main():
             assert block['locked'] and api.api('state')['settings']['device_recovery_hash'] is True
             if console==os.getuid():
                 deadline=time.monotonic()+45
-                while execution.device_result is None and time.monotonic()<deadline:time.sleep(.1)
-                assert execution.device_result and execution.device_result['result']=='simulated',execution.status()
+                while (execution.device_gate.status(os.getuid()) or {}).get('phase')!='sleep' and time.monotonic()<deadline:time.sleep(.1)
                 assert execution.device_gate.status(os.getuid())['phase']=='sleep'
-                proof['real_console_countdown_to_simulated_sleep']='PASS'
-            else:proof['real_console_countdown_to_simulated_sleep']='NO_CONSOLE_USER'
+                time.sleep(2.2)
+                assert execution.device_result is None,'Device action without a usable recovery UI'
+                proof['countdown_without_recovery_ui_does_not_request_sleep']='PASS'
+            else:proof['countdown_without_recovery_ui_does_not_request_sleep']='NO_CONSOLE_USER'
             api.api('settings',{'password':'manager-only','protect_overview':True})
             assert api.api('state')['blocks']==[]
             result=api.api('device/recover',{'word':'fixture-escape'});assert result['ok'] and result['count']==1

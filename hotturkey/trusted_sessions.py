@@ -56,7 +56,10 @@ class TrustedSessions:
 
     @staticmethod
     def validate(data):
-        if set(data)-{'desktop_result','recovery_word'}!=FIELDS:raise PolicyError('会话采样字段无效')
+        if set(data)-{'desktop_result','recovery_word','recovery_ui'}!=FIELDS:raise PolicyError('会话采样字段无效')
+        if 'recovery_ui' in data:
+            from .device_blocks import valid_recovery_ui
+            if not valid_recovery_ui(data['recovery_ui']):raise PolicyError('恢复窗口状态无效')
         if 'recovery_word' in data and (not isinstance(data['recovery_word'],str) or len(data['recovery_word'])>256):raise PolicyError('安全词格式无效')
         if 'desktop_result' in data:
             if data['desktop_result'] is None:raise PolicyError('桌面启动回执无效')
@@ -140,7 +143,9 @@ class TrustedSessions:
             self.authority.store.save()
             result={'accepted':True,'foreground_verified':bool(front)}
             gate=getattr(self.execution,'device_gate',None)
-            if gate is not None:result['sleep_guard']=gate.status(uid)
+            if gate is not None:
+                gate.confirm_ui(uid,data.get('recovery_ui') if data['on_console'] else None)
+                result['sleep_guard']=gate.status(uid)
             if recovery is not None:result['recovery_result']=recovery
             if desktop is not None:result['desktop']=desktop
             return result

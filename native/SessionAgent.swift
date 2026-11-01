@@ -68,6 +68,7 @@ struct SessionAgentMain {
                 if let result=desktop.result { sample["desktop_result"]=result }
                 #if !QA
                 if let word=sleepGuard.takeWord() { sample["recovery_word"]=word }
+                if let readiness=sleepGuard.readiness() { sample["recovery_ui"]=readiness }
                 #endif
                 if let payload=try? JSONSerialization.data(withJSONObject:["op":"session-sample","data":sample]),
                    let response=try? request(payload,path:path,serverUID:serverUID),
@@ -79,7 +80,11 @@ struct SessionAgentMain {
                     #endif
                 }
             }
+            #if QA
             RunLoop.current.run(until:Date(timeIntervalSinceNow:1))
+            #else
+            SleepGuardUI.pumpEvents(until:Date(timeIntervalSinceNow:1))
+            #endif
         }
         #if QA
         let result:[String:Any]=["accepted":accepted,"samples":sequence,"on_console":consoleSamples,"front_present":frontSamples]

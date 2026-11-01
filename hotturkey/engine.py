@@ -4,6 +4,7 @@ import datetime as dt
 import getpass
 import hashlib
 import hmac
+import logging
 import secrets
 import string
 import time
@@ -43,10 +44,22 @@ class Engine:
         self.start_time = self.now()
         self.last_prune = 0
         self.application_targets = None
+        self.statistics_filter = None
+        self.statistics_filter_failed = False
         self.device_recovery_retry=0
 
     def now(self):
         return max(self.wall(), self.anchor + self.monotonic()-self.mono_anchor)
+
+    def statistics_allowed(self,data):
+        try:
+            allowed=self.statistics_filter is None or self.statistics_filter(data)
+            self.statistics_filter_failed=False
+            return allowed
+        except Exception:
+            if not self.statistics_filter_failed:logging.getLogger('hotturkey').exception('Statistics filter failed; policy accounting continues')
+            self.statistics_filter_failed=True
+            return False
 
     def runtime(self, b):
         if hasattr(self.store,"runtime_for"):return self.store.runtime_for(b,self.now())
@@ -394,10 +407,12 @@ class Engine:
             for block in self.store.state['blocks']:
                 if block['device']=='none' or not (self.device_window(block) if stop_plan else self.active(block)):continue
                 end=self.runtime(block).get('device_until',0) if block['mode']=='continuous' else self.interval(block)[1]
-                until=max(until,end);affected.append(block)
+                until=max(until,end);affected.append((block,end))
             if not affected:raise PolicyError('当前没有生效的设备限制')
-            for block in affected:
-                self.runtime(block)['device_emergency_until']=until
+            for block,end in affected:
+                # Every rule keeps its own window boundary. A longer concurrent
+                # rule must not suppress the shorter rule's next scheduled span.
+                self.runtime(block)['device_emergency_until']=end
                 if stop_plan:block.update(enabled=False,autostart={'type':'none'},lock={'type':'none'})
             self.store.save();return {'ok':True,'until':until,'count':len(affected),'stopped':stop_plan}
 
@@ -494,7 +509,7 @@ class Engine:
                     if earned:
                         rt["reward_credit"]=rt.get("reward_credit",0)+earned*br["break_minutes"]*60
                         rt["focus_seconds"]%=br["work_minutes"]*60
-            if settings["statistics"] and (not data.get("incognito") or settings["incognito_statistics"]):
+            if settings["statistics"] and (not data.get("incognito") or settings["incognito_statistics"]) and self.statistics_allowed(data):
                 self.store.event(now,self.user,kind,target,affected[0] if affected else "",seconds,block_ids=affected)
             self.store.save()
 
@@ -520,7 +535,7 @@ class Engine:
             if now-self.blocked_seen.get(key,0)<5: continue
             self.blocked_seen[key]=now
             recorded.append(ident)
-        if recorded and self.store.state["settings"]["statistics"] and (not incognito or self.store.state["settings"]["incognito_statistics"]):
+        if recorded and self.store.state["settings"]["statistics"] and (not incognito or self.store.state["settings"]["incognito_statistics"]) and self.statistics_allowed({'url':target} if kind=='website' else {'application':target}):
             self.store.event(now,self.user,kind,target,recorded[0],0,True,block_ids=recorded)
 
     def tick(self,signin=False):

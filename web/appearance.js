@@ -49,6 +49,19 @@
   if(activityImages.size>512){activityImages.clear();activityPending.clear();}
   document.querySelectorAll('.activity-icon[data-activity-kind="application"]').forEach(applyActivityImage);
  }};
+ const websiteImages=new Map(),websitePending=new Set();
+ function websiteHost(value){try{const u=new URL(value.includes('://')?value:'https://'+value);return ['http:','https:'].includes(u.protocol)?u.hostname.toLowerCase():'';}catch{return '';}}
+ function paintWebsite(element){
+  const host=websiteHost(element.dataset.activityTarget||''),source=websiteImages.get(host);
+  if(source){const image=document.createElement('img');image.src=source;image.alt='';image.decoding='async';image.onerror=()=>{websiteImages.set(host,null);paintWebsite(element);};element.replaceChildren(image);element.classList.remove('website-monogram');element.dataset.iconSource='website';}
+  else if(host){element.textContent=Array.from(host.replace(/^www\./,''))[0].toUpperCase();element.classList.add('website-monogram');let hash=0;for(const c of host)hash=(hash*31+c.charCodeAt(0))|0;element.style.setProperty('--website-hue',Math.abs(hash)%360);}
+  else element.replaceChildren(icon('globe'));
+ }
+ async function requestWebsites(hosts){
+  try{const value=await api('tracking/website-icons',{targets:hosts});for(const item of value.items||[]){if(!hosts.includes(item.target))continue;websiteImages.set(item.target,typeof item.image==='string'&&item.image.length<=90000&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(item.image)?item.image:null);}}
+  catch{for(const host of hosts)websiteImages.set(host,null);}
+  finally{for(const host of hosts)websitePending.delete(host);if(websiteImages.size>512)websiteImages.clear();document.querySelectorAll('.activity-icon[data-activity-kind="website"]').forEach(paintWebsite);}
+ }
  let pending=false,lastNative='';
  const semanticColors=new Set(['--bg','--panel','--ink','--muted','--line','--accent','--tint','--field','--hover','--green','--green-text','--green-tint','--danger','--warning','--warning-text','--warning-tint','--focus','--selection','--selection-ink','--primary-ink','--inactive-selection','--disabled','--link']);
  window.HotTurkeyAppearance={apply(value){
@@ -100,10 +113,10 @@
    const name=element.classList.contains('hero-icon')?'shield':element.dataset.device==='sleep'?'bed':element.textContent==='◴'?'lock':element.textContent==='▦'?'calendar':'shield';
    element.replaceChildren(icon(name));element.dataset.decorated='true';
   });
-  const requested=[];
+  const requested=[],websites=[];
   document.querySelectorAll('.activity-icon:not([data-decorated])').forEach(element=>{
    element.dataset.decorated='true';
-   if(element.dataset.activityKind==='website'){element.replaceChildren(icon('globe'));return;}
+   if(element.dataset.activityKind==='website'){paintWebsite(element);const host=websiteHost(element.dataset.activityTarget||'');if(host&&!websiteImages.has(host)&&!websitePending.has(host)){websitePending.add(host);websites.push(host);}return;}
    const target=element.dataset.activityTarget||'';
    element.textContent=Array.from(target.replace(/^bundle:/,''))[0]?.toLocaleUpperCase()||'·';
    element.classList.add('application-monogram');
@@ -112,6 +125,7 @@
     activityPending.add(target);requested.push(target);
    }
   });
+  for(let i=0;i<websites.length;i+=100)requestWebsites(websites.slice(i,i+100));
   if(requested.length)window.webkit.messageHandlers.native.postMessage({op:'application-icons',targets:requested.slice(0,100)});
   document.querySelectorAll('.tag').forEach(element=>{
    if(element.dataset.decorated||!element.textContent.startsWith('♧'))return;
@@ -128,7 +142,7 @@
   const value={op:'appearance',page,dark:document.body.classList.contains('dark'),theme:document.body.dataset.appearance||'system',paletteReady:document.body.dataset.nativePalette==='true',canManage:typeof canManage==='function'&&canManage()&&state?.authenticated===true,textScale:window.HotTurkeyTextSize?.value||100,
    connection:document.querySelector('#connection')?.textContent||'',connected:!document.querySelector('#connection')?.classList.contains('bad'),
    modal:Boolean(document.querySelector('dialog[open]')),actions:['new-device','new','export-stats'].filter(action=>document.querySelector(`#header-actions [data-action="${action}"]`))};
-  if(value.modal&&window.HotTurkeyNativeSheets){
+  if(document.querySelector('#modal')?.open&&window.HotTurkeyNativeSheets){
    const scale=Number(document.body.style.zoom)||1,modal=document.querySelector('#modal');
    const height=selector=>modal.querySelector(selector)?.getBoundingClientRect().height||0;
    const padding=parseFloat(getComputedStyle(modal.querySelector('.modal-content')).paddingBottom)||0;

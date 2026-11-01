@@ -9,6 +9,7 @@ import time
 from xml.parsers.expat import ExpatError
 from pathlib import Path
 from .model import PolicyError
+from .sleep_notices import sleep_notice
 
 LOG=logging.getLogger("hotturkey")
 ROOT=Path(__file__).resolve().parent.parent
@@ -135,6 +136,10 @@ def enforce_loop(service):
                     except PolicyError as exc:recovery={'error':str(exc)}
                 if sample.get('signin'):wake_sequence+=1
                 gate=service.device_gate.update(os.getuid(),wake_sequence)
+                protocol=sample.get('recovery_protocol',0)
+                service.device_recovery_protocol=2 if type(protocol) is int and protocol==2 else 0
+                service.device_gate.confirm_ui(os.getuid(),sample.get('recovery_ui') if service.device_recovery_protocol==2 and 'recovery_word' not in sample else None)
+                if service.device_recovery_protocol!=2:gate=None
                 service.native_session_initialized=True
                 settings=service.store.state["settings"]
                 foreground=sample.get("front",{})
@@ -148,9 +153,9 @@ def enforce_loop(service):
                 if chosen is not None:
                     rt=e.runtime(chosen)
                     interval=2 if chosen['device']=='sleep' else 10
-                    if gate and gate['phase']=='sleep' and (sample.get('signin') or e.now()-rt.get('last_device',0)>=interval):
+                    if service.device_gate.permitted(os.getuid()) and (sample.get('signin') or e.now()-rt.get('last_device',0)>=interval):
                         device=chosen['device'];rt['last_device']=e.now();service.store.save()
-                notices=service.browser_notices if settings['notifications'] else []
+                notices=service.browser_notices if settings['notifications'] else [];sleep_notices=[]
                 service.browser_notices=[]
                 any_locked=any(e.locked(b) for b in service.store.state["blocks"])
                 for app in sample.get("apps",[]):
@@ -178,6 +183,8 @@ def enforce_loop(service):
                             notices.append("已拦截应用："+app.get("application",bundle))
                             last_sample=app.get("application")
                 for b in service.store.state["blocks"]:
+                    sleep_notice_value=sleep_notice(e,b)
+                    if sleep_notice_value:sleep_notices.append(sleep_notice_value)
                     state=e.status(b)
                     rt=e.runtime(b)
                     summary=(state["active"],state["blocking"],state["locked"])
@@ -188,7 +195,7 @@ def enforce_loop(service):
                     if settings["notifications"]:
                         deadlines=[]
                         if state["locked"] and b["lock"]["type"]=="timer":deadlines.append(("锁定结束",b["lock"]["until"]-e.now()))
-                        if b["enabled"] and state["next_start"]:deadlines.append(("日程开始",state["next_start"]-e.now()))
+                        if b["device"]!="sleep" and b["enabled"] and state["next_start"]:deadlines.append(("日程开始",state["next_start"]-e.now()))
                         bs=state["break_status"]
                         if state["active"] and bs["type"]=="pomodoro":deadlines.append(("休息结束" if bs["allowed"] else "番茄休息开始",bs["remaining"]))
                         if state["active"] and bs["type"]=="allowance" and bs["remaining"]>0:
@@ -204,7 +211,7 @@ def enforce_loop(service):
                                     notices.append(b["name"]+" · "+str(warning)+" 分钟后"+label)
                                     rt["warnings"].append(key)
                         if len(rt.get("warnings",[]))>200:rt["warnings"]=rt["warnings"][-200:]
-            if not native_command(process,service.stop,{"kill":kills,"device":device,"notifications":notices,'sleep_guard':gate,'recovery_result':recovery}):break
+            if not native_command(process,service.stop,{"kill":kills,"device":device,"notifications":notices,"sleep_notifications":sleep_notices,'sleep_guard':gate,'recovery_result':recovery}):break
             # Report healthy only after a full sample/decision exchange.
             service.desktop_at=time.monotonic()
             service.worker_error=None
