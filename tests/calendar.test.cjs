@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const c=vm.createContext({Date});vm.runInContext(fs.readFileSync('web/calendar.js','utf8'),c);const calendar=c.HotTurkeyCalendar;
+const block=(id,start,end,days=[0])=>({id,name:id,color:'#b95636',mode:'scheduled',locked:false,schedule:[{start,end,days}]});
+// Cross-midnight blocks continue into the following day; adjacent events share a lane.
+const night=block('night',1380,120);
+assert.deepEqual(Array.from(calendar.segments([night],0),v=>[v.start,v.end]),[[1380,1440]]);
+assert.deepEqual(Array.from(calendar.segments([night],1),v=>[v.start,v.end]),[[0,120]]);
+assert.equal(calendar.segments([night],2).length,0);
+const events=calendar.segments([block('a',60,180),block('b',90,120),block('c',120,200),block('d',200,240)],0);
+assert.deepEqual(Array.from(events,v=>[v.block.id,v.lane,v.columns]),[['a',0,2],['b',1,2],['c',1,2],['d',0,1]]);
+const hm=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const render=(blocks,extra={})=>calendar.render({blocks,selected:blocks[0]?.id,now:new Date(2026,10,1,12).getTime()/1000,weekStart:'monday',canManage:true,esc,hm,btn:(action,text,attrs)=>`<button data-action="${action}" ${attrs}>${text}</button>`,days:['一','二','三','四','五','六','日'],...extra});
+let html=render([block('a',60,180)]).html;
+assert(html.includes('height:calc(8.333333333333332% - 2px)'));assert(html.includes('24:00'));assert(html.includes('calendar-now'));
+assert(!html.includes('height:60px'));assert.equal((html.match(/class="day-column/g)||[]).length,7);
+assert(render([{...night,locked:true}]).html.includes('data-action="calendar-add" disabled'));
+assert(!render([night],{canManage:false}).html.includes('data-action="calendar-add"'));
+assert(render([{...night,name:'<script>"'}]).html.includes('&lt;script>&quot;'));
+const week=calendar.week(new Date(2026,10,1,12).getTime()/1000,'monday');
+assert.deepEqual(Array.from(week.dates,v=>[v.month,v.date]),[[10,26],[10,27],[10,28],[10,29],[10,30],[10,31],[11,1]]);
+assert.deepEqual(Array.from(calendar.week(new Date(2026,10,1,12).getTime()/1000,'sunday').dates,v=>v.date),[1,2,3,4,5,6,7]);
+assert.equal(render([]).selected,'');
+console.log('10 calendar midnight, overlap, scale, permission, escaping and week-boundary scenarios passed');

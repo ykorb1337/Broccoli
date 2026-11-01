@@ -30,7 +30,7 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
         web.autoresizingMask = [.width, .height]; host.addSubview(web)
         let navigation = NSSplitViewItem(sidebarWithViewController: sidebar)
         navigation.minimumThickness = 200; navigation.maximumThickness = 280
-        navigation.preferredThicknessFraction = 0.2
+        navigation.preferredThicknessFraction = 200.0 / 1590.0
         split.addSplitViewItem(navigation)
         split.addSplitViewItem(NSSplitViewItem(viewController: content))
         window.contentViewController = split
@@ -96,13 +96,20 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
         sidebar.table.isEnabled = !modal
         let available = value["actions"] as? [String] ?? []
         creationActions = Set(available.filter { ["new", "new-device"].contains($0) })
+        // Remove unavailable actions instead of leaving disabled toolbar placeholders.
+        if let toolbar=window?.toolbar {
+            let wanted=identifiers.filter { name in name == "new" ? page == "blocks" && !creationActions.isEmpty : available.contains(name) }
+            for index in toolbar.items.indices.reversed() {
+                let id=toolbar.items[index].itemIdentifier.rawValue
+                if identifiers.contains(id) && !wanted.contains(id) { toolbar.removeItem(at:index) }
+            }
+            for name in wanted where !toolbar.items.contains(where:{$0.itemIdentifier.rawValue==name}) {
+                toolbar.insertItem(withItemIdentifier:.init(name),at:toolbar.items.count)
+            }
+            for name in wanted { actions[name]?.isEnabled = !modal }
+        }
         for item in creationMenu?.items ?? [] {
             item.isEnabled = !modal && canManage && creationActions.contains(item.representedObject as? String ?? "")
-        }
-        for (name, item) in actions {
-            let visible = name == "new" ? !creationActions.isEmpty : available.contains(name)
-            item.isEnabled = !modal && visible
-            if #available(macOS 15.0, *) { item.isHidden = !visible }
         }
         editorSheet?.synchronize(value)
         style?.refresh(force: value["paletteReady"] as? Bool != true)
@@ -112,16 +119,17 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
     func cancelEditor() { editorSheet?.reset() }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace] + identifiers.map { .init($0) }
+        [.init("sidebar-toggle"), .flexibleSpace]
     }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        toolbarDefaultItemIdentifiers(toolbar)
+        toolbarDefaultItemIdentifiers(toolbar) + identifiers.map { .init($0) }
     }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        if identifier == .toggleSidebar {
+        if identifier.rawValue == "sidebar-toggle" {
             let item = NSToolbarItem(itemIdentifier: identifier)
             item.label = "显示或隐藏侧栏"; item.toolTip = item.label
             item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: item.label)
+            item.isNavigational = true
             item.target = split; item.action = #selector(NSSplitViewController.toggleSidebar(_:)); item.isBordered = true
             return item
         }

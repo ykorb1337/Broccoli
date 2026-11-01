@@ -16,7 +16,7 @@ const context={state:{can_manage:false,authenticated:false,blocks:[block],settin
  api:async(path,data)=>{calls.push({path,data});return {};},
  renderOverview:()=>rendered.push('overview'),renderBlocks:()=>rendered.push('blocks'),
  renderCalendar:()=>rendered.push('schedule'),renderStats:()=>rendered.push('statistics'),renderSettings:()=>rendered.push('settings')};
-vm.createContext(context);
+vm.createContext(context);vm.runInContext(fs.readFileSync("web/calendar.js","utf8"),context);
 for(const name of ['canManage','allowedAction','resetPomodoroButton','blockCard'])vm.runInContext(source.match(new RegExp(`function ${name}\\([^\\n]+`))[0],context);
 vm.runInContext(source.slice(source.indexOf('function renderPage('),source.indexOf('function renderOverview(')),context);
 vm.runInContext(source.slice(source.indexOf('async function action('),source.indexOf("document.addEventListener('click'")),context);
@@ -39,6 +39,8 @@ let count=0;
  context.state.can_manage=true;context.page='blocks';context.renderPage();assert(element('#content').innerHTML.includes('设置已受密码保护'));count++;
  context.state.authenticated=true;context.renderPage();assert.equal(rendered.at(-1),'blocks');
  const managed=context.blockCard(block);assert(managed.includes('data-action="edit"'));assert(managed.includes('role="switch"'));count++;
+ for(const page of ['overview','schedule','statistics']){context.page=page;context.renderPage();assert(!element('#header-actions').innerHTML.includes('data-action="new"'));}
+ context.page='blocks';context.renderPage();assert(element('#header-actions').innerHTML.includes('data-action="new"'));count++;
  const resting={...block,break:{type:'pomodoro'},break_status:{type:'pomodoro',allowed:true},mode:'scheduled',blocking:false};
  assert(context.blockCard(resting).includes('data-action="skip-break"'));
  assert(!context.blockCard({...resting,device:'sleep'}).includes('data-action="skip-break"'));

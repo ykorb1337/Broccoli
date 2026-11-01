@@ -23,6 +23,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     var connectionPending = false
     var systemMode = false
     let appearance = DesktopAppearance()
+    var initialWindowFrame: NSRect?
     var nativeChromeInstalled = false
     var fileDialogs: DesktopFiles!
     private var desktopIconLoaded = false
@@ -75,7 +76,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         web = WKWebView(frame:.zero,configuration:config)
         web.navigationDelegate = self
         web.uiDelegate = self
-        window = NSWindow(contentRect:NSRect(x:0,y:0,width:1200,height:820),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+        window = NSWindow(contentRect:NSRect(x:0,y:0,width:1590,height:1100),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         window.minSize = NSSize(width:920,height:650)
         window.title = "HotTurkey"
         window.contentView = web
@@ -88,7 +89,10 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         loadingLabel.translatesAutoresizingMaskIntoConstraints = false
         web.addSubview(loadingLabel)
         NSLayoutConstraint.activate([loadingLabel.centerXAnchor.constraint(equalTo:web.centerXAnchor),loadingLabel.centerYAnchor.constraint(equalTo:web.centerYAnchor)])
-        window.center()
+        if let screen=window.screen ?? NSScreen.main {
+            let frame=DesktopWindowLayout.frame(in:screen.visibleFrame);initialWindowFrame=frame
+            window.minSize=NSSize(width:min(920,frame.width),height:min(650,frame.height));window.setFrame(frame,display:false)
+        } else { window.center() }
         window.isReleasedWhenClosed = false
         UNUserNotificationCenter.current().delegate = self
         notices = DistributedNotificationCenter.default().addObserver(forName:NSNotification.Name("local.hotturkey.notice"),object:nil,queue:.main) { note in
@@ -309,6 +313,25 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             }
             return
         }
+        if let body=message.body as? [String:Any],body["op"] as? String=="notification-permission",
+           let request=body["request"] as? String,request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil,
+           let mode=body["mode"] as? String,["status","request"].contains(mode) {
+            let generation=navigationGeneration
+            func reply() {
+                UNUserNotificationCenter.current().getNotificationSettings { settings in
+                    let granted=settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                    DispatchQueue.main.async {
+                        guard self.navigationGeneration==generation,
+                              let data=try? JSONSerialization.data(withJSONObject:["request":request,"granted":granted]),
+                              let json=String(data:data,encoding:.utf8) else{return}
+                        self.web.evaluateJavaScript("window.HotTurkeyNotifications?.receive(\(json));true")
+                    }
+                }
+            }
+            if mode=="request" { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in reply() } }
+            else { reply() }
+            return
+        }
         if let body=message.body as? [String:Any],body["op"] as? String=="tracking-media",let request=body["request"] as? String,
            request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil {
             handleTrackingMedia(body,request:request)
@@ -351,6 +374,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
                 guard let page = body["page"] as? String, FocusSidebar.pages.contains(page), body["dark"] is Bool else { return }
                 appearance.install(in:window,web:web)
                 nativeChromeInstalled = true
+                if let frame=initialWindowFrame { window.setFrame(frame,display:true);initialWindowFrame=nil;desktopLog("initial window frame \(Int(frame.width))x\(Int(frame.height))") }
                 desktopLog("native interface ready")
             }
             appearance.update(body)
@@ -376,7 +400,6 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         }
         guard let command = message.body as? String else { return }
         if command == "reconnect" { connect(); return }
-        if command == "notifications" { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
         if command == "pickApp" || command == "pickFolder" || command == "pickBinary" {
             let panel = NSOpenPanel(); panel.canChooseDirectories = command == "pickFolder"; panel.canChooseFiles = command != "pickFolder"; panel.allowsMultipleSelection = true
             panel.beginSheetModal(for:appearance.presentationWindow ?? window) { response in
