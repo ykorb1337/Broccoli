@@ -83,9 +83,9 @@ window.HotTurkeyDayData=(()=>{
  }
  function viewport(rows,scrollTop=0,height=480){const first=Math.min(Math.max(0,rows.length-1),Math.max(0,Math.floor(scrollTop/36)-8)),last=Math.min(rows.length,first+Math.min(160,Math.ceil(height/36)+16));return {first,last,rows:rows.slice(first,last),before:first*36,after:Math.max(0,(rows.length-last)*36)};}
  function selectionPlot(ranges,start,end,pixels=600){
-  if(!(end>start))return [];const clipped=intersection(ranges,[[start,end]]);if(clipped.length<=pixels)return clipped;
-  const step=(end-start)/pixels,bins=union(clipped.map(([a,b])=>[Math.floor((a-start)/step),Math.ceil((b-start)/step)]));
-  return bins.map(([a,b])=>[start+a*step,Math.min(end,start+b*step)]);
+  if(!(end>start))return [];const clipped=intersection(union(ranges),[[start,end]]),step=(end-start)/Math.max(1,pixels),out=[];
+  for(const [a,b] of clipped){const last=out[out.length-1];if(last&&a-last[1]<step)last[1]=Math.max(last[1],b);else out.push([a,b]);}
+  return out;
  }
  return {rootDomain,groupDocuments,ranges,create,union,intersection,duration,without,viewport,plot,title,sorted,selectionPlot};
 })();

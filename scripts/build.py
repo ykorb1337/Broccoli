@@ -97,7 +97,7 @@ def main():
             with path.open('rb') as stream:magic=stream.read(4)
             if magic in {b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca'}:
                 subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(path)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"15","CFBundleShortVersionString":"0.4.3","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
+    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"21","CFBundleShortVersionString":"0.4.9","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
     info['CFBundleIconFile']='HotTurkey.icns'
     (app/"Info.plist").write_bytes(plistlib.dumps(info))
     # Ad-hoc signing allows local execution; distribution still needs a Developer ID.
@@ -108,6 +108,7 @@ def main():
     manifest["background"]={"scripts":["background.js"]}
     manifest["browser_specific_settings"]={"gecko":{"id":"hotturkey@local.hotturkey","strict_min_version":"128.0","data_collection_permissions":{"required":["none"]}}}
     manifest.pop("incognito",None)
+    manifest["permissions"]=[value for value in manifest["permissions"] if value!="favicon"]
     (firefox/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2))
     if args.qa:
         qa=BUILD/"HotTurkey QA.app"

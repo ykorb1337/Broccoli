@@ -27,6 +27,10 @@ const cached=D.create({activities:sortedRows}),order={key:'title',direction:'asc
 const sparse=Array.from({length:5000},(_,i)=>[i*2,i*2+1]),before=JSON.stringify(sparse),visual=D.selectionPlot(sparse,0,10000);assert(visual.length<=600);assert.equal(D.duration(sparse),5000);assert.equal(JSON.stringify(sparse),before);
 assert.deepEqual([...D.selectionPlot([[10,20],[30,40]],15,35).map(v=>[...v])],[[15,20],[30,35]]);
 assert.equal(D.selectionPlot(sparse,3000,3010).length,5,'zoom restores separate selection ranges');
+const almostTouching=[[0,60],[60.000001,120],[120.000002,180]],originalSelection=JSON.stringify(almostTouching);
+assert.deepEqual([...D.selectionPlot(almostTouching,0,180,900).map(v=>[...v])],[[0,180]],'subpixel sampling gaps share one outline');
+assert.equal(JSON.stringify(almostTouching),originalSelection,'visual merging never changes selected intervals or durations');
+assert.deepEqual([...D.selectionPlot([[0,10],[11,20]],0,20,100).map(v=>[...v])],[[0,10],[11,20]],'a visible gap retains separate borders when zoomed in');
 const searchRows=[
  row('edge-app','applications',0,100,{...edge,group_name:edge.name,title:'Microsoft Edge'}),
  row('word-app','applications',120,180,{application:'Word',bundle:'com.microsoft.Word',group_name:'Word',title:'Word'}),

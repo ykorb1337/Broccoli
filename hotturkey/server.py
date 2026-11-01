@@ -30,6 +30,8 @@ class Service:
             raise PolicyError("HotTurkey 服务已在运行") from None
         self.singleton=self.service_lease.stream
         self.store=Store(directory)
+        from .website_icons import WebsiteIcons
+        self.website_icons=WebsiteIcons(directory=directory)
         from .platform_macos import boot_id
         self.engine=Engine(self.store,boot_id=boot_id())
         self.tracking=None;self.tracking_recorder=None;self.tracking_error=''
@@ -161,6 +163,11 @@ class Service:
         if path=='/api/device/recover' and method=='POST':
             if data.get('stop_plan',False) and not self.authorized(headers):raise PolicyError('紧急停用计划需要管理验证；仍可用安全词放行本次时段')
             return e.recover_device(data.get('word'),data.get('stop_plan',False))
+        if path=='/api/extension/website-icons' and method=='POST':
+            items=data.get('items')
+            if not isinstance(items,list) or len(items)>32:raise PolicyError('网站图标请求无效')
+            self.website_icons.accept(items)
+            return {'ok':True}
         if path in {'/api/extension/add-site-options','/api/extension/add-site'} and method=='POST':
             from .browser_additions import options,add_site
             with self.store.lock:
@@ -203,7 +210,7 @@ class Service:
                 blocks=e.snapshot()['blocks']
                 for value,block in zip(blocks,self.store.state['blocks']):value['tab_revision']=self.tab_exceptions.revision(block)
                 grants=self.tab_exceptions.snapshot(data['context'],data.get('tabs',[])) if 'context' in data else []
-            return {"blocks":blocks,"tab_grants":grants,"tab_unblock_supported":True,"settings":{k:self.store.state["settings"][k] for k in ["block_inactive","block_embeds","allow_files","idle_seconds"]},"now":e.now()}
+            return {"blocks":blocks,"tab_grants":grants,"tab_unblock_supported":True,"settings":{k:self.store.state["settings"][k] for k in ["block_inactive","block_embeds","allow_files","idle_seconds"]},"now":e.now(),'website_icon_requests':self.website_icons.requests()}
         if path=='/api/extension/tab-unblock' and method=='POST':return self.tab_exceptions.request(data)
         if path=='/api/extension/tab-close' and method=='POST':return self.tab_exceptions.close(data)
         if path=="/api/extension/break" and method=="POST":

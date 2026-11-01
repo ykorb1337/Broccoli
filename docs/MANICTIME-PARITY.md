@@ -1,6 +1,6 @@
 # ManicTime 统计功能对照与完成条件
 
-当前安装状态（2026-10-31）：0.4.3 / Build 15 已安装并重启正式桌面界面。日视图时间线交互、关联筛选、根域名汇总、相邻时序模式、本地网站图标、三态勾选与日期区间导出已交付；验收使用当天真实统计的独立副本。规则、安全词、锁定期限、额度与原有统计记录均保留。详见 [Build 15 验证记录](VALIDATION.md)。下文保留各阶段历史记录；完整功能对标与原生保存面板全组合验收仍未完成。
+当前安装状态（2026-10-31）：0.4.9 / Build 21 已安装。日视图时间线交互、关联筛选、根域名汇总、相邻时序模式、本地网站图标、三态勾选与日期区间导出已交付；后续修复了隐藏选择残留、重复描边、后台图标读取权限和时间线重绘卡顿，汇总与明细底部均显示选中/全天时长。验收使用当天真实统计的独立副本，并核对正式窗口。规则、安全词、锁定期限、额度与原有统计记录均保留。详见 [验证记录](VALIDATION.md)。下文保留各阶段历史记录；完整功能对标与原生保存面板全组合验收仍未完成。
 
 目标：复现 Windows 客户端的统计工作流与布局，采用 HotTurkey 的 Apple 风格。
 参考：官方 [日视图](https://docs.manictime.com/win-client/overview)、[跟踪](https://docs.manictime.com/win-client/tracking)、[标签](https://docs.manictime.com/win-client/tagging)、[统计](https://docs.manictime.com/win-client/statistics)、[截图](https://docs.manictime.com/win-client/screenshots)。

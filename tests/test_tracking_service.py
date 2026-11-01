@@ -31,6 +31,21 @@ class TrackingServiceTests(unittest.TestCase):
         code,value=self.request('tracking/website-icons',{'targets':['example.org']})
         self.assertEqual(code,200);self.assertEqual(value,{'items':[{'target':'example.org','image':None}]})
         self.assertEqual(self.request('tracking/website-icons',{'targets':['x']*101})[0],400)
+
+    def test_browser_native_host_can_fill_a_requested_icon_without_policy_changes(self):
+        import base64
+        from hotturkey.website_icons import WebsiteIcons
+        image='data:image/png;base64,'+base64.b64encode(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')).decode()
+        self.s.website_icons=WebsiteIcons([],directory=self.temp.name)
+        before=json.dumps(self.s.store.state,sort_keys=True)
+        self.request('tracking/website-icons',{'targets':['example.org']})
+        code,reply=self.request('bridge',{'browser':'Edge','usage':[]})
+        self.assertEqual(code,200);self.assertEqual(reply['website_icon_requests'],['example.org'])
+        self.request('extension/website-icons',{'items':[{'target':'example.org','image':image}]})
+        code,result=self.request('tracking/website-icons',{'targets':['example.org']})
+        self.assertEqual(result['items'][0]['image'],image)
+        self.assertEqual(json.dumps(self.s.store.state,sort_keys=True),before)
+        self.assertEqual(WebsiteIcons([],directory=self.temp.name).resolve(['example.org'])['items'][0]['image'],image)
     def test_search_grammar_over_http_and_invalid_query_errors(self):
         from urllib.parse import urlencode
         for offset,title,duration in [(0,'Draft',60),(60,'Review',20),(80,'Private',120)]:

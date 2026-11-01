@@ -11,6 +11,8 @@ const data={since:0,until:86400,activities:[row('edge','applications','Course ti
 (async()=>{
  assert.equal(calls.length,1);const initial=ctx.HotTurkeyTracking.refresh();assert.equal(calls.length,1,'entrypoint and navigation must share their initial request');first.resolve(data);await initial;
  const model=ctx.HotTurkeyTracking.model;assert.equal(model.timeline,'documents');assert.equal(model.chronological,false);assert.equal(model.detailSort.key,'seconds');assert.equal(model.detailSort.direction,'desc');
+ const detailFooter=()=>root.innerHTML.match(/mt-detail-pane[\s\S]*?<div class="mt-pane-total">([^<]*)/)[1];
+ assert.equal(detailFooter(),'0:00:00 / 0:01:40','details footer starts at zero over full-day use');
  const summarySelect=root.innerHTML.match(/<select id="mt-summary-kind"[^>]*>([\s\S]*?)<\/select>/)[1];assert(!summarySelect.includes('value="documents"'),'summary menu excludes documents');
  const detail=()=>{for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'detailed-urls'}})}});};
  detail();assert.equal(model.detailedURLs,true);detail();assert.equal(model.detailedURLs,false);assert(root.innerHTML.includes('data-mt="detailed-urls" aria-pressed="false"'));
@@ -30,6 +32,7 @@ const data={since:0,until:86400,activities:[row('edge','applications','Course ti
  const beforeOwnerClick=calls.length;for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'group',kind:'applications',index:'1'}})}});
  assert.equal(model.appScope.bundle,'com.microsoft.Word');assert.equal(model.timeline,'documents');assert.equal(model.query,'GPT');assert.equal(model.data.details[0].title,'GPT report.docx');assert.equal(calls.length,beforeOwnerClick,'document-owner selection keeps the filter locally');
  assert(root.innerHTML.includes('0:01:00 / 0:02:40'),'summary footer compares selected and full matching time');
+ assert.equal(detailFooter(),'0:01:00 / 0:02:40','details use the full-day denominator through search and application scope');
  model.queries.applications='private';model.queryError='stale';const beforeRestore=calls.length;
  for(const f of events.click||[])f({preventDefault(){},target:{closest:()=>({dataset:{mt:'fit'}})}});
  assert.equal(model.query,'');assert.equal(Object.keys(model.queries).length,0);assert.equal(model.appScope,null);assert.equal(model.selection.length,0);assert.equal(model.queryError,'');assert.equal(model.data.details.length,2);assert.equal(calls.length,beforeRestore,'restore uses complete local data without another request');assert(root.innerHTML.includes('0:00:00 / 0:02:40'),'summary footer starts at zero over full-day use');

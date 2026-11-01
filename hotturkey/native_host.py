@@ -37,11 +37,12 @@ def main():
                 encoded=json.dumps(result,ensure_ascii=False).encode()
                 sys.stdout.buffer.write(struct.pack('<I',len(encoded))+encoded);sys.stdout.buffer.flush()
                 continue
-            path={"check":"/api/check","sync":"/api/bridge","break":"/api/extension/break","closed-tab":"/api/extension/closed-tab",'tab-unblock':'/api/extension/tab-unblock','tab-close':'/api/extension/tab-close','add-site-options':'/api/extension/add-site-options','add-site':'/api/extension/add-site'}.get(message.get("op"))
+            path={"check":"/api/check","sync":"/api/bridge","break":"/api/extension/break","closed-tab":"/api/extension/closed-tab",'tab-unblock':'/api/extension/tab-unblock','tab-close':'/api/extension/tab-close','add-site-options':'/api/extension/add-site-options','add-site':'/api/extension/add-site','website-icons':'/api/extension/website-icons'}.get(message.get("op"))
             # The popup may only append a validated website; no general edits/unlocks.
             if path is None: raise ValueError("Unsupported operation")
             connection=json.loads((default_data()/"connection.json").read_text())
-            request=urllib.request.Request(f'http://127.0.0.1:{connection["port"]}{path}',data=json.dumps(message.get("data",{})).encode(),headers={"Authorization":"Bearer "+connection["token"],"Content-Type":"application/json"})
+            data=message.get('data',{})
+            request=urllib.request.Request(f'http://127.0.0.1:{connection["port"]}{path}',data=json.dumps(data).encode(),headers={"Authorization":"Bearer "+connection["token"],"Content-Type":"application/json"})
             with urllib.request.urlopen(request,timeout=5) as response: result=json.load(response)
             if message.get('document_protocol')==1:result=documents.pack(None,message['op'],'',result)
         except PolicyError as exc:

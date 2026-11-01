@@ -15,10 +15,12 @@ const selection=()=>JSON.parse(JSON.stringify(ctx.HotTurkeyTracking.model.select
 (async()=>{
  await ctx.HotTurkeyTracking.refresh();const model=ctx.HotTurkeyTracking.model;
  check('applications',0,true);check('applications',1,true);assert.deepEqual(selection(),[[0,40]],'two app checkboxes add rather than replace');
+ assert.equal((root.innerHTML.match(/class="mt-selection-layer"/g)||[]).length,1,'one shared selection surface spans every timeline row');
+ assert.equal((root.innerHTML.match(/class="mt-selection"/g)||[]).length,1,'the same selected interval is not painted again for each row');
  check('applications',0,false);assert.deepEqual(selection(),[[10,20]],'unchecking only removes that app');
  click('clear-selection');check('computer',0,true);check('applications',0,false);assert.deepEqual(selection(),[[10,20],[40,50]],'all active time except Edge');
  click('timeline',{value:'applications'});assert.deepEqual(selection(),[[10,20],[40,50]]);
- all(true);assert.deepEqual(selection(),[[0,50]],'all results preserves selection outside the app rows');all(false);assert.deepEqual(selection(),[[40,50]],'uncheck all results preserves other timelines');
+ all(true);assert.deepEqual(selection(),[[0,50]],'all results preserves selection outside the app rows');all(false);assert.deepEqual(selection(),[],'uncheck all clears hidden leftovers as well as visible rows');
  click('group',{kind:'applications',index:'0'});assert.equal(model.timeline,'documents');assert.equal(model.appScope.bundle,'com.microsoft.edgemac');
  check('documents',0,false);assert.deepEqual(selection(),[[20,40]],'scoped document checkbox cannot subtract Chrome at the same host');assert.equal(model.appScope,null);
  click('clear-selection');click('timeline',{value:'applications'});check('applications',1,true);
@@ -44,5 +46,9 @@ const selection=()=>JSON.parse(JSON.stringify(ctx.HotTurkeyTracking.model.select
  dispatch('change',{target:{id:'mt-summary-kind',dataset:{},value:'computer'}});assert.equal(model.summaryKind,'computer');assert.equal((root.innerHTML.match(/mt-summary-section/g)||[]).length,1,'only one summary category is shown');
  model.selection=[[0,10]];dispatch('change',{target:{id:'mt-summary-all',dataset:{},checked:true}});assert.deepEqual(selection(),[[0,50]]);dispatch('change',{target:{id:'mt-summary-all',dataset:{},checked:false}});assert.deepEqual(selection(),[]);
  model.selection=[[0,10]];click('detail-sort',{key:'start'});assert(root.innerHTML.includes('id="mt-summary-all" aria-label="选择全部汇总" data-partial="true"'),'partially selected summary has mixed state');
- console.log('25 checkbox, mixed state, overview drag, edge resize, wheel zoom, pan and selection scenarios passed');
+ model.summaryKind='applications';model.timeline='applications';model.selection=[[0,10],[100,110]];
+ check('applications',0,false);assert.deepEqual(selection(),[],'unchecking the last represented group removes invisible orphan ranges');
+ model.selection=[[0,10],[100,110]];dispatch('change',{target:{id:'mt-summary-all',dataset:{},checked:false}});assert.deepEqual(selection(),[],'summary deselect-all leaves no timeline overlay');
+ model.selection=[[100,110]];dispatch('change',{target:{id:'mt-summary-kind',dataset:{},value:'applications'}});assert.deepEqual(selection(),[],'changing summary cannot leave a selection represented by no row');
+ console.log('28 checkbox, mixed state, overview drag, edge resize, wheel zoom, pan and selection scenarios passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
