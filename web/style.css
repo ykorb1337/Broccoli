@@ -438,3 +438,7 @@ code { padding:3px 5px; border-radius:4px; background:var(--field); font:11px ui
 .reduce-transparency aside,.reduce-transparency main>header,.reduce-transparency #toast { backdrop-filter:none; -webkit-backdrop-filter:none; background:var(--panel); }
 .reduce-transparency dialog::backdrop { backdrop-filter:none; -webkit-backdrop-filter:none; }
 .increase-contrast .lock-form,.increase-contrast .settings-group-body,.increase-contrast .panel,.increase-contrast .card { border-color:var(--line); }
+
+#toast.saved { display:flex; align-items:center; gap:8px; padding:9px 15px; border-radius:11px; font-size:13px; }
+#toast.saved::before { content:'✓'; color:var(--green); font-size:15px; font-weight:500; }
+.native-sheet #toast.saved { display:none; }

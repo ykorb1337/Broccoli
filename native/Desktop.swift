@@ -236,7 +236,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         if picture { trackingMediaGeneration += 1 }
         let mediaGeneration=trackingMediaGeneration
         if action=="close" { trackingMedia.close();complete(["ok":true]);return }
-        guard ["window","update","copy","open","open-with"].contains(action),let id=body["id"] as? String,
+        guard ["window","update","copy","open","open-with","reveal","save-as"].contains(action),let id=body["id"] as? String,
               id.range(of:#"^[a-f0-9]{32}$"#,options:.regularExpression) != nil,
               let session=body["session"] as? String,session.range(of:#"^[A-Za-z0-9_-]{0,512}$"#,options:.regularExpression) != nil,
               let origin=activeOrigin,let token=activeToken,
@@ -255,13 +255,50 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
                 guard (response as? HTTPURLResponse)?.statusCode==200,let relative=file?["file"] as? String else {
                     complete(["ok":false,"error":"无法读取截图，请先解锁管理界面或重新连接后台"]);return
                 }
-                var verified=body;verified["file"]=relative
+                var verified=body;verified["file"]=relative;verified["verifiedDirectory"]=file?["directory"] as? String ?? self.dataDirectory.appendingPathComponent("screenshots").path
                 self.trackingMedia.handle(verified,directory:self.dataDirectory,parent:self.filePresentationWindow ?? self.window,completion:complete)
             }
         }.resume()
     }
+    private func handleScreenshotDirectory(_ body:[String:Any],request:String) {
+        let generation=navigationGeneration
+        func complete(_ result:[String:Any]) {
+            guard self.navigationGeneration==generation,let data=try? JSONSerialization.data(withJSONObject:result.merging(["request":request]){old,_ in old}),let json=String(data:data,encoding:.utf8) else{return}
+            self.web.evaluateJavaScript("window.HotTurkeyMediaBridge?.receive(\(json));true")
+        }
+        guard let action=body["action"] as? String,["choose","open"].contains(action),let session=body["session"] as? String,
+              session.range(of:#"^[A-Za-z0-9_-]{0,512}$"#,options:.regularExpression) != nil,
+              let origin=activeOrigin,let token=activeToken,let url=URL(string:"/api/tracking/screenshots/directory",relativeTo:origin)?.absoluteURL else { complete(["ok":false,"error":"操作无效"]);return }
+        func call(_ path:String? = nil,done:@escaping ([String:Any]?) -> Void) {
+            var check=URLRequest(url:url,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:15)
+            check.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization");check.setValue(session,forHTTPHeaderField:"X-HotTurkey-Session")
+            if let path { check.httpMethod="POST";check.setValue("application/json",forHTTPHeaderField:"Content-Type");check.httpBody=try? JSONSerialization.data(withJSONObject:["path":path]) }
+            self.probeSession.dataTask(with:check) { data,response,_ in
+                let value=(response as? HTTPURLResponse)?.statusCode==200 ? data.flatMap{try? JSONSerialization.jsonObject(with:$0)} as? [String:Any] : nil
+                DispatchQueue.main.async { guard self.navigationGeneration==generation else{return};done(value) }
+            }.resume()
+        }
+        call { value in
+            guard let value,let path=value["path"] as? String else { complete(["ok":false,"error":"请先解锁管理界面或重新连接后台"]);return }
+            let root=URL(fileURLWithPath:path,isDirectory:true)
+            if action=="open" {
+                do { try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700]);complete(["ok":NSWorkspace.shared.open(root)]) }
+                catch { complete(["ok":false,"error":"无法打开截图目录"]) }
+                return
+            }
+            guard let parent=self.filePresentationWindow ?? self.window else { complete(["ok":false,"error":"窗口不可用"]);return }
+            guard parent.attachedSheet==nil else { complete(["ok":false,"error":"请先关闭当前弹窗"]);return }
+            let picker=NSOpenPanel();picker.canChooseFiles=false;picker.canChooseDirectories=true;picker.allowsMultipleSelection=false;picker.canCreateDirectories=true
+            picker.title="截图位置";picker.prompt="选择";picker.directoryURL=root.deletingLastPathComponent()
+            picker.beginSheetModal(for:parent) { result in
+                guard result == .OK,let chosen=picker.url else { complete(["ok":true,"cancelled":true]);return }
+                call(chosen.path) { result in guard let result else { complete(["ok":false,"error":"无法使用所选文件夹"]);return };complete(result.merging(["ok":true]){old,_ in old}) }
+            }
+        }
+    }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard trustedFrame(message.frameInfo) else { return }
+        if let body=message.body as? [String:Any],body["op"] as? String=="tracking-directory",let request=body["request"] as? String,request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil { handleScreenshotDirectory(body,request:request);return }
         if let body=message.body as? [String:Any],body["op"] as? String=="tracking-copy",
            let request=body["request"] as? String,request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil,
            let text=body["text"] as? String,text.utf8.count<=4*1024*1024 {
@@ -284,7 +321,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             guard FileManager.default.isExecutableFile(atPath:helper.path) else { showError("统计采样组件尚未安装。"); return }
             let process = Process(); process.executableURL = helper
             process.arguments = [kind == "screen" ? "--request-screen-permission" : "--request-accessibility"]
-            process.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.trackingPermissionProcess = nil; self?.web.evaluateJavaScript("window.HotTurkeyTracking?.refresh(); true") } }
+            process.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.trackingPermissionProcess = nil; self?.web.evaluateJavaScript("window.HotTurkeyScreenshotSettings?.refresh(); if(typeof page!=='undefined'&&page==='statistics')window.HotTurkeyTracking?.refresh(); true") } }
             do { try process.run(); trackingPermissionProcess = process } catch { showError("无法打开统计权限设置。"); }
             return
         }

@@ -25,13 +25,22 @@ def dispatch(service,path,method,data,query):
         if path=='groups':
             from .tracking_reports import group_choices
             return {'items':group_choices(tracking,get('since'),get('until'),get('timeline','applications'))}
-        if path=='settings':return {'settings':tracking.settings(),'status':dict(service.tracking_recorder.status)}
+        if path=='settings':
+            status=dict(service.tracking_recorder.status)
+            with tracking.lock:status['last_screenshot_at']=tracking.db.execute('SELECT MAX(at) FROM tracking_screenshots').fetchone()[0]
+            return {'settings':tracking.settings(),'status':status,'directory':tracking.screenshot_storage.current()}
         if path=='day':
             try:selection=json.loads(get('selection','[]'))
             except (ValueError,TypeError):raise PolicyError('时间选择无效') from None
             if not isinstance(selection,list) or len(selection)>1000:raise PolicyError('时间选择无效')
             value=tracking.day(get('day',dt.date.today().isoformat()),get('timeline','applications'),get('q'),selection,get('untagged')=='true')
             value['status']=dict(service.tracking_recorder.status);return value
+        if path=='screenshots/estimate':
+            from .screenshot_estimates import estimate
+            return estimate(tracking,service.tracking_recorder.status)
+        if path=='screenshots/directory':return tracking.screenshot_storage.current()
+        if path=='screenshots/index':return {'items':tracking.screenshots(get('since'),get('until'),query=get('q'),limit=20000,index=True)}
+        if path=='screenshots/thumbnail':return tracking.screenshot_thumbnail(get('id'))
         if path=='screenshots':return {'items':tracking.screenshots(get('since'),get('until'),get('at') or None,get('q'),get('direction'),number('limit',200),get('display'))}
         if path=='screenshots/displays':return {'items':tracking.screenshot_displays(get('since'),get('until'))}
         if path=='screenshots/location':return tracking.screenshot_location(get('id'))
@@ -41,6 +50,7 @@ def dispatch(service,path,method,data,query):
         if path=='timesheet':return tracking.timesheet(get('since'),get('until'),number('depth',30),None if not get('billable') else get('billable')=='true',number('round_minutes',0))
         if path=='entities':return {'items':tracking.entities(get('kind'))}
     if method=='POST':
+        if path=='screenshots/directory':return tracking.screenshot_storage.choose(data.get('path'))
         if path=='website-icons':
             from .website_icons import WebsiteIcons
             if not hasattr(service,'website_icons'):service.website_icons=WebsiteIcons()

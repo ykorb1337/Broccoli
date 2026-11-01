@@ -65,8 +65,9 @@ class RecorderTests(unittest.TestCase):
     def test_screenshot_command_off_by_default_and_while_locked(self):
         self.sample();self.assertFalse(self.sample()['capture'])
         self.tracking.configure({'screenshots_enabled':True});self.recorder.last_capture=0
-        self.assertFalse(self.sample()['capture']);self.assertTrue(self.sample()['capture']);self.assertFalse(self.sample()['capture'])
-        self.recorder.last_capture=0;self.assertFalse(self.sample(locked=True)['capture'])
+        permitted={'screen_recording':True}
+        self.assertFalse(self.sample(permissions=permitted)['capture']);self.assertTrue(self.sample(permissions=permitted)['capture']);self.assertFalse(self.sample(permissions=permitted)['capture'])
+        self.recorder.last_capture=0;self.assertFalse(self.sample(locked=True,permissions=permitted)['capture'])
     def test_accounting_state_is_not_changed_by_tracker(self):
         before=copy.deepcopy(self.store.state);self.store.charge(self.now,'rule',19);self.sample();self.sample()
         self.assertEqual(self.store.state,before);self.assertEqual(self.store.used('rule',0),19)

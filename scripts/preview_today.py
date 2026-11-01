@@ -23,10 +23,11 @@ def copy_today(source,service,day):
     if source==destination:raise ValueError('预览目录不能是安装版数据目录')
     since,until=day_bounds(day);tracking=service.tracking
     if tracking is None:raise RuntimeError('无法初始化预览统计资料库')
-    counts={};shot_files=[]
+    counts={};shot_files=[];roots={'default':source/'screenshots'}
     with closing(sqlite3.connect((source/'tracking.sqlite3').as_uri()+'?mode=ro',uri=True,timeout=5)) as reader:
         reader.row_factory=sqlite3.Row;reader.execute('PRAGMA query_only=ON');reader.execute('BEGIN')
         tables={r[0] for r in reader.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if 'tracking_screenshot_roots' in tables:roots.update({r['id']:Path(r['path']) for r in reader.execute('SELECT id,path FROM tracking_screenshot_roots')})
         required={'tracking_activities','tracking_tags','tracking_screenshots','tracking_settings'}
         if not required<=tables:raise ValueError('安装版统计资料格式不完整')
         with tracking.lock,tracking.db:
@@ -43,7 +44,11 @@ def copy_today(source,service,day):
                 for item in reader.execute(sql,params):
                     row=dict(item)
                     if table in ['tracking_activities','tracking_tags']:row['start']=max(since,row['start']);row['end']=min(until,row['end'])
-                    if table=='tracking_screenshots':shot_files.append(row['file'])
+                    if table=='tracking_screenshots':
+                        shot_files.append((row['file'],roots.get(row.get('storage_id') or 'default')))
+                        if 'storage_id' in row:row['storage_id']='default'
+                    if table=='tracking_settings':
+                        value=json.loads(row['value']);value['screenshot_directory']='';row['value']=json.dumps(value)
                     tracking.db.execute('INSERT INTO '+table+' ('+','.join(columns)+') VALUES ('+','.join('?' for _ in columns)+')',[row[c] for c in columns]);count+=1
                 counts[table]=count
             if 'tracking_meta' in tables:
@@ -56,9 +61,10 @@ def copy_today(source,service,day):
     tracking.close();service.tracking=None;service.tracking_recorder=None
     if not service.initialize_tracking():raise RuntimeError('无法读取复制的统计资料')
     missing_images=0
-    for relative in shot_files:
+    for relative,source_root in shot_files:
         if not isinstance(relative,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}/[a-f0-9]{32}\.(jpg|png|webp)',relative):missing_images+=1;continue
-        image=(source/'screenshots'/relative).resolve();base=(source/'screenshots').resolve()
+        if source_root is None:missing_images+=1;continue
+        image=(source_root/relative).resolve();base=source_root.resolve()
         if base not in image.parents or not image.is_file():missing_images+=1;continue
         shot_root=destination/'screenshots';shot_root.mkdir(exist_ok=True,mode=0o700)
         target=shot_root/relative;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700);shutil.copyfile(image,target);target.chmod(0o600)

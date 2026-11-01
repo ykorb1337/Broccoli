@@ -41,7 +41,7 @@ class TrackingRecorder:
         capture_ready=bool(self.previous and self.previous['allowed'] and self.previous['settings']==policy)
         permissions=sample.get('permissions',{})
         if permissions.get('screen_recording') is True and not self.status['screen_recording']:self.last_capture=0
-        self.status.update(connected=True,accessibility=permissions.get('accessibility') is True,screen_recording=permissions.get('screen_recording') is True,last_sample=now,error='',screenshot_error=str(sample.get('capture_error',''))[:500],formats=permissions.get('formats',['jpeg','png']))
+        self.status.update(displays=permissions.get('displays',[]) if isinstance(permissions.get('displays',[]),list) else [],connected=True,accessibility=permissions.get('accessibility') is True,screen_recording=permissions.get('screen_recording') is True,last_sample=now,error='',screenshot_error=str(sample.get('capture_error',''))[:500],formats=permissions.get('formats',['jpeg','png']))
         state='Sleep' if sample.get('sleeping') else 'Locked' if sample.get('locked') else 'Away' if float(sample.get('idle',0))>=settings['idle_seconds'] else 'Active'
         try:self.tracking.clock.observe(state,min(now,finite(sample.get('at',now))),float(sample.get('idle',0)))
         except Exception:LOG.exception('Manual tag clock could not observe inactivity')
@@ -79,13 +79,13 @@ class TrackingRecorder:
                 context=self.pending_captures.get(image.get('capture_id'))
                 age=now-context['at'] if context else -1
                 captured=finite(image.get('at'))
-                if context and 0<=age<=20 and context['at']<=captured<=now+2 and context['settings']==policy and allowed and app==context['application'] and image.get('bundle')==app['bundle'] and self.tracking.recording_allowed(now,**{k:app[k] for k in ['application','bundle','url','document','title']},screenshots=True):
+                if context and state=='Active' and permissions.get('screen_recording') is True and 0<=age<=20 and context['at']<=captured<=now+2 and context['settings']==policy and allowed and app==context['application'] and image.get('bundle')==app['bundle'] and self.tracking.recording_allowed(now,**{k:app[k] for k in ['application','bundle','url','document','title']},screenshots=True):
                     fields={k:app[k] for k in ['application','bundle','path']}
                     fields.update({k:app[k] if settings['titles'] else '' for k in ['title','url','document']})
-                    self.tracking.add_screenshot({**image,**fields})
-                else:self.tracking.discard_unregistered_screenshot(image.get('file'))
+                    self.tracking.add_screenshot({**image,**fields,'storage_id':context['storage']['id']})
+                else:self.tracking.discard_unregistered_screenshot(image.get('file'),image.get('storage_id') or 'default')
             except Exception:
-                try:self.tracking.discard_unregistered_screenshot(image.get('file'))
+                try:self.tracking.discard_unregistered_screenshot(image.get('file'),image.get('storage_id') or 'default')
                 except Exception:pass
                 LOG.warning('A captured image could not be accepted')
         self.pending_captures={key:value for key,value in self.pending_captures.items() if 0<=now-value['at']<=20}
@@ -93,14 +93,14 @@ class TrackingRecorder:
             self.tracking.prune(now);self.last_prune=now
         # Give the native collector one frame to apply record/title settings.
         # Otherwise a restart/resume could capture before AX metadata is ready.
-        capture=bool(capture_ready and allowed and state=='Active' and self.tracking.recording_allowed(now,**{k:app[k] for k in ['application','bundle','url','document','title']},screenshots=True) and now-self.last_capture>=settings['screenshot_interval'])
+        capture=bool(capture_ready and allowed and state=='Active' and permissions.get('screen_recording') is True and self.tracking.recording_allowed(now,**{k:app[k] for k in ['application','bundle','url','document','title']},screenshots=True) and now-self.last_capture>=settings['screenshot_interval'])
         capture_id=secrets.token_hex(16) if capture else ''
         if capture:
             self.last_capture=now
-            self.pending_captures[capture_id]={'at':now,'application':dict(app),'settings':policy}
+            self.pending_captures[capture_id]={'at':now,'application':dict(app),'settings':policy,'storage':self.tracking.screenshot_storage.current()}
         try:notices=self.tracking.clock.take_notices() if self.tracking.store.state['settings']['notifications'] else []
         except Exception:LOG.exception('Manual tag clock notices unavailable');notices=[]
-        return {'record':allowed,'capture':capture,'capture_id':capture_id,'format':settings['screenshot_format'],'max_width':settings['screenshot_max_width'],'displays':settings['screenshot_displays'],'titles':settings['titles'],'notifications':notices}
+        return {'record':allowed,'capture':capture,'capture_id':capture_id,'format':'png' if settings['screenshot_quality']=='original' else settings['screenshot_format'],'max_width':0 if settings['screenshot_quality']=='original' else 2560 if settings['screenshot_quality']=='high' else 1600,'quality':settings['screenshot_quality'],'storage':self.tracking.screenshot_storage.current(),'displays':settings['screenshot_displays'],'titles':settings['titles'],'notifications':notices}
     def run(self,stop,helper):
         from .platform_macos import native_samples,native_command
         delay=1

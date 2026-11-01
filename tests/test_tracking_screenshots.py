@@ -77,8 +77,30 @@ class ScreenshotTests(unittest.TestCase):
         command=self.start();image=self.image(capture_id=command['capture_id']);self.sample(screenshots=[image]);image['capture_id']='expired'
         self.sample(screenshots=[image]);self.assertEqual(len(self.t.screenshots(self.a,self.b)),1);self.assertTrue((self.store.directory/'screenshots'/image['file']).exists())
     def test_permission_grant_resets_capture_interval(self):
-        self.t.configure({'screenshots_enabled':True});self.sample(permissions={'screen_recording':False});first=self.sample(permissions={'screen_recording':False});self.assertTrue(first['capture'])
+        self.t.configure({'screenshots_enabled':True});self.sample(permissions={'screen_recording':False});first=self.sample(permissions={'screen_recording':False});self.assertFalse(first['capture']);self.assertEqual(self.r.pending_captures,{})
         second=self.sample(permissions={'screen_recording':True});self.assertTrue(second['capture'])
+    def test_default_interval_is_one_minute_and_can_be_disabled(self):
+        self.assertEqual(self.t.settings()['screenshot_interval'],60)
+        self.start()
+        for _ in range(59):self.assertFalse(self.sample()['capture'])
+        self.assertTrue(self.sample()['capture'])
+        self.t.configure({'screenshots_enabled':False})
+        for _ in range(61):self.assertFalse(self.sample()['capture'])
+    def test_settings_report_last_screenshot_and_clear_it_after_deletion(self):
+        from types import SimpleNamespace
+        from hotturkey.tracking_api import dispatch
+        service=SimpleNamespace(tracking=self.t,tracking_recorder=self.r)
+        status=lambda:dispatch(service,'settings','GET',{},{} )['status']['last_screenshot_at']
+        self.assertIsNone(status())
+        image=self.image();self.t.add_screenshot(image);self.assertEqual(status(),self.now)
+        self.t.delete_screenshots(ids=[image['id']]);self.assertIsNone(status())
+    def test_lock_sleep_and_idle_do_not_capture_or_accept_pending_images(self):
+        for values in [{'locked':True},{'sleeping':True},{'idle':1000},{'permissions':{'screen_recording':False}}]:
+            with self.subTest(state=values):
+                self.r.last=None;self.r.previous=None;self.r.last_capture=0
+                command=self.start();image=self.image(index=len(values)+100+int(self.now),capture_id=command['capture_id'])
+                self.assertFalse(self.sample(screenshots=[image],**values)['capture'])
+                self.assertEqual(self.t.screenshots(self.a,self.b),[])
     def test_sampler_capture_errors_are_reported_without_stopping_tracking(self):
         self.sample(capture_error='Unavailable format');self.assertEqual(self.r.status['screenshot_error'],'Unavailable format');self.assertTrue(self.r.status['connected'])
     def test_viewer_preferences_do_not_drop_tracking_or_pending_capture(self):
@@ -110,8 +132,55 @@ class ScreenshotTests(unittest.TestCase):
         for kwargs in [{'direction':'random'},{'direction':'next'},{'limit':True},{'limit':501}]:
             with self.subTest(kwargs=kwargs),self.assertRaises(PolicyError):self.t.screenshots(self.a,self.b,**kwargs)
         with self.assertRaises(PolicyError):self.t.screenshots(self.a,self.b,query='"unfinished')
+    def test_quality_defaults_to_lossless_original_and_commands_match(self):
+        self.assertEqual(self.t.settings()['screenshot_quality'],'original')
+        command=self.start();self.assertEqual((command['format'],command['max_width']),('png',0))
+        self.t.configure({'screenshot_quality':'high'});command=self.sample();self.assertEqual(command['max_width'],2560)
+        self.t.configure({'screenshot_quality':'standard'});self.assertEqual(self.sample()['max_width'],1600)
+        with self.assertRaises(PolicyError):self.t.configure({'screenshot_quality':'ultra'})
+    def test_directory_changes_only_future_images_and_survives_reopen(self):
+        value=self.image();self.t.add_screenshot(value);original=self.t.screenshot(value['id'])[0]
+        with tempfile.TemporaryDirectory() as parent:
+            root=self.t.screenshot_storage.choose(parent)
+            self.assertEqual(Path(root['path']).name,'HotTurkey Screenshots')
+            self.assertEqual(Path(root['path']).stat().st_mode&0o777,0o700)
+            self.assertEqual(self.t.screenshot(value['id'])[0],original)
+            command=self.start();self.assertEqual(command['storage'],root)
+            item=self.image(2,capture_id=command['capture_id'],storage_id=root['id'])
+            old=self.store.directory/'screenshots'/item['file'];target=Path(root['path'])/item['file'];target.parent.mkdir(mode=0o700);old.rename(target)
+            self.sample(screenshots=[item]);self.assertEqual(self.t.screenshot_location(item['id'])['directory'],root['path'])
+            self.t.close();self.t=TrackingStore(self.store);self.assertEqual(self.t.screenshot_storage.current(),root)
+            self.assertEqual(self.t.screenshot(item['id'])[0],PNG)
+            self.t.delete_screenshots(ids=[item['id']]);self.assertFalse(target.exists())
+            self.assertEqual(self.t.screenshot(value['id'])[0],original)
+    def test_directory_display_keeps_unicode_spaces_and_long_paths(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as home:
+            parent=Path(home)/('学习截图 文件夹 '*8);parent.mkdir()
+            root=self.t.screenshot_storage.choose(str(parent));self.assertEqual(root['display_path'],root['path'])
+            with patch('pathlib.Path.home',return_value=Path(home)):
+                display=self.t.screenshot_storage.current()['display_path']
+                self.assertTrue(display.startswith('~/'));self.assertIn(parent.name,display);self.assertNotIn('…',display)
+    def test_directory_rejects_unsafe_child_and_generic_setting(self):
+        with tempfile.TemporaryDirectory() as parent:
+            child=Path(parent)/'HotTurkey Screenshots';child.mkdir(mode=0o755)
+            with self.assertRaises(PolicyError):self.t.screenshot_storage.choose(parent)
+            child.rmdir();child.symlink_to(self.store.directory)
+            with self.assertRaises(PolicyError):self.t.screenshot_storage.choose(parent)
+        with self.assertRaises(PolicyError):self.t.configure({'screenshot_directory':'/tmp'})
+    def test_index_is_chronological_and_keeps_regular_page_limit(self):
+        from hotturkey.tracking_api import dispatch
+        from types import SimpleNamespace
+        for n in range(520):self.t.db.execute('INSERT INTO tracking_screenshots(id,at,display,file,width,height,application,bundle,title) VALUES(?,?,?,?,?,?,?,?,?)',(f'{n:032x}',self.a+n,'main','missing',1,1,'Editor','',''))
+        self.t.db.commit();value=dispatch(SimpleNamespace(tracking=self.t),'screenshots/index','GET',{}, {'since':[self.a],'until':[self.b]})
+        self.assertEqual(len(value['items']),520);self.assertEqual(value['items'][0]['at'],self.a);self.assertNotIn('file',value['items'][0])
+    def test_thumbnail_is_derived_and_deletion_removes_both(self):
+        value=self.image();self.t.add_screenshot(value);path=self.store.directory/'screenshots'/value['file']
+        preview=path.with_suffix('.preview.jpg');preview.write_bytes(b'\xff\xd8\xffpreview');preview.chmod(0o600)
+        self.assertEqual(self.t.screenshot_thumbnail(value['id']),(preview.read_bytes(),'image/jpeg'));self.assertEqual(path.read_bytes(),PNG)
+        self.t.delete_screenshots(ids=[value['id']]);self.assertFalse(preview.exists());self.assertFalse(path.exists())
     def test_location_requires_registered_private_file(self):
-        value=self.image();self.t.add_screenshot(value);self.assertEqual(self.t.screenshot_location(value['id']),{'file':value['file']})
+        value=self.image();self.t.add_screenshot(value);self.assertEqual(self.t.screenshot_location(value['id']),{'file':value['file'],'directory':str(self.store.directory/'screenshots')})
         (self.store.directory/'screenshots'/value['file']).chmod(0o644)
         with self.assertRaises(PolicyError):self.t.screenshot_location(value['id'])
     def test_symlinks_hardlinks_and_traversal_are_rejected(self):

@@ -43,4 +43,22 @@ class PreviewTodayTests(unittest.TestCase):
                 for service in [source,target]:
                     service.http.server_close();service.tracking.close();service.store.db.close();service.singleton.close()
 
+    def test_custom_directory_images_are_copied_without_live_roots(self):
+        with tempfile.TemporaryDirectory() as src,tempfile.TemporaryDirectory() as dst,tempfile.TemporaryDirectory() as photos:
+            source=Service(src,enforce=False);target=Service(dst,enforce=False)
+            try:
+                a,b=day_bounds('2026-11-01');root=source.tracking.screenshot_storage.choose(photos)
+                image=Path(root['path'])/'2026-11-01'/('b'*32+'.png');image.parent.mkdir(mode=0o700)
+                image.write_bytes(b'\x89PNG\r\n\x1a\nfixture');image.chmod(0o600)
+                source.tracking.add_screenshot({'id':'b'*32,'at':a+20,'file':'2026-11-01/'+image.name,'width':1,'height':1,'storage_id':root['id']})
+                result=preview.copy_today(src,target,'2026-11-01');self.assertEqual(result['missing_screenshot_files'],0)
+                self.assertEqual(target.tracking.screenshot('b'*32)[0],image.read_bytes())
+                self.assertEqual(target.tracking.settings()['screenshot_directory'],'')
+                self.assertEqual(target.tracking.screenshot_storage.current()['id'],'default')
+                self.assertNotIn(root['path'],str(list(target.tracking.db.execute('SELECT * FROM tracking_screenshot_roots'))))
+                target.tracking.delete_screenshots(ids=['b'*32]);self.assertTrue(image.exists())
+            finally:
+                for service in [source,target]:
+                    service.http.server_close();service.tracking.close();service.store.db.close();service.singleton.close()
+
 if __name__=='__main__':unittest.main()

@@ -27,6 +27,7 @@ final class LocalTracker {
     }
     func config() -> [String: Any] { lock.lock(); defer { lock.unlock() }; return configuration }
     func generation() -> Int { lock.lock(); defer { lock.unlock() }; return captureGeneration }
+    func invalidateCapture() { lock.lock(); captureGeneration += 1; lock.unlock() }
     func append(_ metadata: [String: Any]) { lock.lock(); completed.append(metadata); lock.unlock() }
     func readAX(_ element: AXUIElement, _ attribute: CFString) -> AnyObject? {
         var value: CFTypeRef?
@@ -51,9 +52,16 @@ final class LocalTracker {
         let front = foreground()
         let session = CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:]
         let formats = CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []
+        var displayIDs=[CGDirectDisplayID](repeating:0,count:12),displayCount:UInt32=0
+        _ = CGGetActiveDisplayList(12,&displayIDs,&displayCount)
+        let displayInfo:[[String:Any]]=displayIDs.prefix(Int(displayCount)).map { id in
+            let mode=CGDisplayCopyDisplayMode(id)
+            return ["id":String(id),"width":mode?.pixelWidth ?? CGDisplayPixelsWide(id),"height":mode?.pixelHeight ?? CGDisplayPixelsHigh(id),"main":id==CGMainDisplayID()]
+        }
         var result: [String: Any] = ["apps":[], "front":front, "at":Date().timeIntervalSince1970, "capture_error":captureError, "idle":CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType:CGEventType(rawValue:UInt32.max)!),
             "locked":session["CGSSessionScreenIsLocked"] as? Bool ?? false, "sleeping":sleeping,
-            "permissions":["accessibility":AXIsProcessTrusted(),"screen_recording":CGPreflightScreenCaptureAccess(),"formats":["jpeg","png"] + (formats.contains(UTType.webP.identifier) ? ["webp"] : [])]]
+            "permissions":["displays":displayInfo,"accessibility":AXIsProcessTrusted(),"screen_recording":CGPreflightScreenCaptureAccess(),"formats":["jpeg","png"] + (formats.contains(UTType.webP.identifier) ? ["webp"] : [])]]
+        if sleeping || result["locked"] as? Bool == true { invalidateCapture() }
         lock.lock(); result["screenshots"] = completed; completed.removeAll(); lock.unlock()
         if let data = try? JSONSerialization.data(withJSONObject:result) { FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10])) }
         if state["capture"] as? Bool == true && state["record"] as? Bool == true && !sleeping && result["locked"] as? Bool != true && CGPreflightScreenCaptureAccess() && !capturing {
@@ -76,14 +84,17 @@ final class LocalTracker {
         }
     }
     @MainActor func frames(_ config: [String: Any]) async throws -> [(String, CGImage)] {
-        let maxWidth = min(7680,max(320,config["max_width"] as? Int ?? 2560))
+        let maxWidth = config["quality"] as? String == "original" ? 0 : min(7680,max(320,config["max_width"] as? Int ?? 2560))
         let mainOnly = config["displays"] as? String == "main"
         if #available(macOS 14.0, *) {
             let content = try await SCShareableContent.excludingDesktopWindows(false,onScreenWindowsOnly:true)
             var frames: [(String, CGImage)] = []
             for display in content.displays.prefix(12) where !mainOnly || display.displayID == CGMainDisplayID() {
                 let stream = SCStreamConfiguration()
-                stream.width = min(maxWidth,display.width); stream.height = max(1,display.height * stream.width / max(1,display.width)); stream.showsCursor = true
+                let mode = CGDisplayCopyDisplayMode(display.displayID)
+                let width = mode?.pixelWidth ?? display.width, height = mode?.pixelHeight ?? display.height
+                stream.width = maxWidth == 0 ? width : min(maxWidth,width)
+                stream.height = max(1,height * stream.width / max(1,width)); stream.showsCursor = true
                 let image = try await SCScreenshotManager.captureImage(contentFilter:SCContentFilter(display:display,excludingWindows:[]),configuration:stream)
                 frames.append((String(display.displayID),image))
             }
@@ -98,33 +109,45 @@ final class LocalTracker {
         }
     }
     func save(_ source: CGImage, display: String, front: [String:String], settings: [String:Any]) throws -> [String:Any]? {
-        let format = settings["format"] as? String ?? "jpeg"
+        let original = settings["quality"] as? String == "original"
+        let format = original ? "png" : settings["format"] as? String ?? "jpeg"
         let type = format == "png" ? UTType.png : format == "webp" ? UTType.webP : UTType.jpeg
         guard (CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).contains(type.identifier) else { captureError = "当前系统不支持此截图格式";return nil }
         let maxWidth = min(7680,max(320,settings["max_width"] as? Int ?? 2560))
         var image = source
-        if source.width > maxWidth, let context = CGContext(data:nil,width:maxWidth,height:max(1,source.height*maxWidth/source.width),bitsPerComponent:8,bytesPerRow:0,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) {
+        if !original && source.width > maxWidth, let context = CGContext(data:nil,width:maxWidth,height:max(1,source.height*maxWidth/source.width),bitsPerComponent:8,bytesPerRow:0,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) {
             context.interpolationQuality = .high; context.draw(source,in:CGRect(x:0,y:0,width:context.width,height:context.height))
             if let scaled = context.makeImage() { image = scaled }
         }
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data,type.identifier as CFString,1,nil) else { return nil }
-        CGImageDestinationAddImage(destination,image,[kCGImageDestinationLossyCompressionQuality:0.8] as CFDictionary)
+        CGImageDestinationAddImage(destination,image,[kCGImageDestinationLossyCompressionQuality:settings["quality"] as? String == "high" ? 0.9 : 0.8] as CFDictionary)
         guard CGImageDestinationFinalize(destination),data.length <= 64*1024*1024 else { return nil }
         let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"; formatter.locale = Locale(identifier:"en_US_POSIX")
         let date = formatter.string(from:Date()),ident = UUID().uuidString.replacingOccurrences(of:"-",with:"").lowercased()
-        let folder = directory.appendingPathComponent(date,isDirectory:true)
+        let storage = settings["storage"] as? [String:String] ?? [:]
+        let root = storage["path"].map { URL(fileURLWithPath:$0,isDirectory:true) } ?? directory
+        let folder = root.appendingPathComponent(date,isDirectory:true)
         try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
-        try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:directory.path)
-        let relative = date + "/" + ident + (format == "jpeg" ? ".jpg" : "." + format),file = directory.appendingPathComponent(relative)
+        try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:root.path)
+        let relative = date + "/" + ident + (format == "jpeg" ? ".jpg" : "." + format),file = root.appendingPathComponent(relative)
         try (data as Data).write(to:file,options:.atomic);try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
-        return ["id":ident,"capture_id":settings["capture_id"] as? String ?? "","file":relative,"display":display,"width":image.width,"height":image.height,"application":front["application"] ?? "","bundle":front["bundle"] ?? "","title":front["title"] ?? "","at":Date().timeIntervalSince1970]
+        // A small derived preview keeps timeline navigation independent of the
+        // original PNG's size. Failure here never discards the original.
+        if let small = CGImageSourceCreateWithData(data as CFData,nil).flatMap({ CGImageSourceCreateThumbnailAtIndex($0,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceThumbnailMaxPixelSize:1200] as CFDictionary) }) {
+            let preview=NSMutableData()
+            if let output=CGImageDestinationCreateWithData(preview,UTType.jpeg.identifier as CFString,1,nil) {
+                CGImageDestinationAddImage(output,small,[kCGImageDestinationLossyCompressionQuality:0.85] as CFDictionary)
+                if CGImageDestinationFinalize(output) { let url=file.deletingPathExtension().appendingPathExtension("preview.jpg");try? (preview as Data).write(to:url,options:.atomic);try? FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:url.path) }
+            }
+        }
+        return ["storage_id":storage["id"] ?? "default","id":ident,"capture_id":settings["capture_id"] as? String ?? "","file":relative,"display":display,"width":image.width,"height":image.height,"application":front["application"] ?? "","bundle":front["bundle"] ?? "","title":front["title"] ?? "","at":Date().timeIntervalSince1970]
     }
     func observePower() {
         let center = NSWorkspace.shared.notificationCenter
-        center.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in self?.sleeping = true; self?.sample() }
-        center.addObserver(forName:NSWorkspace.didWakeNotification,object:nil,queue:.main) { [weak self] _ in self?.sleeping = false; self?.sample() }
-        center.addObserver(forName:NSWorkspace.sessionDidResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.sample() }
+        center.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in self?.invalidateCapture(); self?.sleeping = true; self?.sample() }
+        center.addObserver(forName:NSWorkspace.didWakeNotification,object:nil,queue:.main) { [weak self] _ in self?.invalidateCapture(); self?.sleeping = false; self?.sample() }
+        center.addObserver(forName:NSWorkspace.sessionDidResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.invalidateCapture(); self?.sample() }
     }
 }
 @main enum TrackingMain {

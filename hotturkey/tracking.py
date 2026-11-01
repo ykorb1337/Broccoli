@@ -28,7 +28,7 @@ PALETTE=('#007aff','#af52de','#30a46c','#e18a12','#da5260','#00a3a3','#6b68d9','
 DEFAULTS={'enabled':True,'paused_until':0,'titles':True,'idle_seconds':180,'retention_days':365,
  'schedule_enabled':False,'schedule':[],'application_mode':'exclude','applications':[],'website_mode':'exclude','websites':[],
  'document_mode':'exclude','documents':[],'title_mode':'exclude','window_titles':[],
- 'screenshots_enabled':False,'screenshot_interval':60,'screenshot_retention_days':7,
+ 'screenshots_enabled':False,'screenshot_interval':60,'screenshot_retention_days':7,'screenshot_quality':'original','screenshot_directory':'',
  'screenshot_application_mode':'exclude','screenshot_applications':[],'screenshot_format':'jpeg',
  'screenshot_displays':'all','screenshot_max_width':2560,'snap_minutes':1,'viewer_dock':'right','viewer_open':False}
 
@@ -122,7 +122,7 @@ class TrackingStore:
             CREATE TABLE IF NOT EXISTS tracking_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
             ''')
             columns={row['name'] for row in self.db.execute('PRAGMA table_info(tracking_screenshots)')}
-            for name in ['url','document','path']:
+            for name in ['url','document','path','storage_id']:
                 if name not in columns:self.db.execute('ALTER TABLE tracking_screenshots ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''")
             self.db.execute('CREATE INDEX IF NOT EXISTS tracking_screenshot_display_time ON tracking_screenshots(display,at)')
             self.db.commit()
@@ -131,6 +131,8 @@ class TrackingStore:
             saved=json.loads(self.db.execute('SELECT value FROM tracking_settings WHERE id=1').fetchone()[0])
             self._configuration={**copy.deepcopy(DEFAULTS),**saved}
             if 'schedule_enabled' not in saved:self._configuration['schedule_enabled']=bool(saved.get('schedule'))
+            from .screenshot_storage import ScreenshotStorage
+            self.screenshot_storage=ScreenshotStorage(self)
             from .tracking_tags import TagLibrary
             self.tag_library=TagLibrary(self)
             from .tracking_clock import TagClock
@@ -166,6 +168,9 @@ class TrackingStore:
                     if not isinstance(item,list) or len(item)>168:raise PolicyError('跟踪日程无效')
                     for row in item:
                         if not isinstance(row,dict) or set(row)!={'days','start','end'} or not isinstance(row['days'],list) or not row['days'] or any(type(d) is not int or not 0<=d<=6 for d in row['days']) or type(row['start']) is not int or not 0<=row['start']<1440 or type(row['end']) is not int or not 0<=row['end']<=1440 or row['start']==row['end']:raise PolicyError('跟踪日程无效')
+                elif key=='screenshot_directory':raise PolicyError('请通过文件夹选择器更改截图目录')
+                elif key=='screenshot_quality':
+                    if item not in {'original','high','standard'}:raise PolicyError('截图清晰度无效')
                 elif key=='screenshot_format':
                     if item not in {'jpeg','png','webp'}:raise PolicyError('截图格式无效')
                 elif key=='screenshot_displays':
@@ -376,9 +381,9 @@ class TrackingStore:
                         v={**original,'id':uuid.uuid4().hex,'start':a,'end':b};keys=list(v)
                         self.db.execute('INSERT INTO '+table+' ('+','.join(keys)+') VALUES('+','.join('?' for _ in keys)+')',list(v.values()))
         return {'ok':True}
-    def screenshot_path(self,relative):
+    def screenshot_path(self,relative,storage_id='default'):
         if not isinstance(relative,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}/[a-f0-9]{32}\.(jpg|png|webp)',relative):raise PolicyError('截图路径无效')
-        root=self.store.directory/'screenshots';path=root/relative
+        root=self.screenshot_storage.root(storage_id or 'default');path=root/relative
         for item in [root,path.parent,path]:
             try:info=item.lstat()
             except FileNotFoundError:raise PolicyError('截图文件不存在') from None
@@ -388,19 +393,19 @@ class TrackingStore:
         return path
     def add_screenshot(self,value):
         if not isinstance(value,dict) or not re.fullmatch('[a-f0-9]{32}',str(value.get('id',''))):raise PolicyError('截图标识无效')
-        path=self.screenshot_path(value.get('file'))
+        path=self.screenshot_path(value.get('file'),value.get('storage_id') or 'default')
         if path.stem!=value['id']:raise PolicyError('截图标识与文件不匹配')
         width,height=value.get('width'),value.get('height')
         if any(type(n) is not int or not 1<=n<=16384 for n in [width,height]):raise PolicyError('截图尺寸无效')
         at=finite(value.get('at'))
         with self.lock:
-            fields=['id','at','display','file','width','height','application','bundle','title','url','document','path']
+            fields=['id','at','display','file','width','height','application','bundle','title','url','document','path','storage_id']
             values=[value['id'],at,text(value.get('display',''),40),value['file'],width,height]+[text(value.get(k,''),8192 if k=='url' else 4096) for k in fields[6:]]
             self.db.execute('INSERT OR IGNORE INTO tracking_screenshots ('+','.join(fields)+') VALUES('+','.join('?' for _ in fields)+')',values);self.db.commit()
         return value['id']
-    def screenshots(self,since,until,at=None,query='',direction='',limit=200,display=''):
+    def screenshots(self,since,until,at=None,query='',direction='',limit=200,display='',index=False):
         since,until=bounds(since,until)
-        if direction not in ['','next','previous'] or type(limit) is not int or not 1<=limit<=500:raise PolicyError('截图浏览选项无效')
+        if direction not in ['','next','previous'] or type(limit) is not int or not 1<=limit<=(20000 if index else 500):raise PolicyError('截图浏览选项无效')
         display=text(display,40);sql='SELECT * FROM tracking_screenshots WHERE at>=? AND at<?';args=[since,until]
         if display:sql+=' AND display=?';args.append(display)
         if direction and at is None:raise PolicyError('截图导航时间无效')
@@ -434,19 +439,50 @@ class TrackingStore:
         with self.lock:return [{'id':row['display'],'count':row['count']} for row in self.db.execute('SELECT display,COUNT(*) AS count FROM tracking_screenshots WHERE at>=? AND at<? GROUP BY display ORDER BY display',(since,until))]
     def screenshot_location(self,ident):
         if not isinstance(ident,str) or not re.fullmatch('[a-f0-9]{32}',ident):raise PolicyError('截图标识无效')
-        with self.lock:row=self.db.execute('SELECT file FROM tracking_screenshots WHERE id=?',(ident,)).fetchone()
+        with self.lock:row=self.db.execute('SELECT file,storage_id FROM tracking_screenshots WHERE id=?',(ident,)).fetchone()
         if not row:raise PolicyError('找不到该截图')
-        self.screenshot_path(row['file'])
-        return {'file':row['file']}
-    def discard_unregistered_screenshot(self,relative):
+        self.screenshot_path(row['file'],row['storage_id'])
+        return {'file':row['file'],'directory':str(self.screenshot_storage.root(row['storage_id'] or 'default'))}
+    def discard_unregistered_screenshot(self,relative,storage_id='default'):
         with self.lock:
-            if self.db.execute('SELECT 1 FROM tracking_screenshots WHERE file=?',(relative,)).fetchone():return False
-            self.screenshot_path(relative).unlink();return True
+            if self.db.execute('SELECT 1 FROM tracking_screenshots WHERE file=? AND COALESCE(NULLIF(storage_id,\'\'),\'default\')=?',(relative,storage_id)).fetchone():return False
+            path=self.screenshot_path(relative,storage_id);self.remove_screenshot_files(path);return True
+    @staticmethod
+    def remove_screenshot_files(path):
+        path.unlink()
+        preview=path.with_suffix('.preview.jpg')
+        try:preview.unlink()
+        except FileNotFoundError:pass
+    def screenshot_thumbnail(self,ident):
+        import subprocess
+        # Resolve the registered ID first. Derived previews never accept paths
+        # from the browser, and original bytes remain untouched.
+        location=self.screenshot_location(ident)
+        path=Path(location['directory'])/location['file'];preview=path.with_suffix('.preview.jpg')
+        def read():
+            info=preview.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077 or info.st_nlink!=1 or info.st_size>8*1024*1024:raise PolicyError('截图预览权限无效')
+            data=preview.read_bytes()
+            if not data.startswith(b'\xff\xd8\xff'):raise PolicyError('截图预览无效')
+            return data,'image/jpeg'
+        try:return read()
+        except FileNotFoundError:pass
+        # Older captures acquire a preview on demand, in a private temporary
+        # file. New captures already have one from the native collector.
+        temporary=preview.with_name('.preview-'+uuid.uuid4().hex+'.jpg')
+        try:
+            subprocess.run(['/usr/bin/sips','-s','format','jpeg','-s','formatOptions','85','-Z','1200',str(path),'--out',str(temporary)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=8)
+            temporary.chmod(0o600);os.replace(temporary,preview)
+            return read()
+        except (OSError,subprocess.SubprocessError):return self.screenshot(ident)
+        finally:
+            try:temporary.unlink()
+            except FileNotFoundError:pass
     def screenshot(self,ident):
         if not isinstance(ident,str) or not re.fullmatch('[a-f0-9]{32}',ident):raise PolicyError('截图标识无效')
         with self.lock:row=self.db.execute('SELECT * FROM tracking_screenshots WHERE id=?',(ident,)).fetchone()
         if not row:raise PolicyError('找不到该截图')
-        path=self.screenshot_path(row['file']);data=path.read_bytes()
+        path=self.screenshot_path(row['file'],row['storage_id']);data=path.read_bytes()
         mime={'.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp'}[path.suffix]
         valid=data.startswith(b'\xff\xd8\xff') if path.suffix=='.jpg' else data.startswith(b'\x89PNG\r\n\x1a\n') if path.suffix=='.png' else data.startswith(b'RIFF') and data[8:12]==b'WEBP'
         if not valid:raise PolicyError('截图内容损坏')
@@ -455,13 +491,13 @@ class TrackingStore:
         with self.lock:
             if ids is not None:
                 if not isinstance(ids,list) or len(ids)>1000 or any(not isinstance(i,str) or not re.fullmatch('[a-f0-9]{32}',i) for i in ids):raise PolicyError('截图选择无效')
-                rows=[self.db.execute('SELECT id,file FROM tracking_screenshots WHERE id=?',(i,)).fetchone() for i in ids]
+                rows=[self.db.execute('SELECT id,file,storage_id FROM tracking_screenshots WHERE id=?',(i,)).fetchone() for i in ids]
             else:
-                since,until=bounds(since,until);rows=self.db.execute('SELECT id,file FROM tracking_screenshots WHERE at>=? AND at<?',(since,until)).fetchall()
+                since,until=bounds(since,until);rows=self.db.execute('SELECT id,file,storage_id FROM tracking_screenshots WHERE at>=? AND at<?',(since,until)).fetchall()
             count=0
             for row in rows:
                 if row is None:continue
-                try:self.screenshot_path(row['file']).unlink()
+                try:self.remove_screenshot_files(self.screenshot_path(row['file'],row['storage_id']))
                 except PolicyError as error:
                     if str(error)!='截图文件不存在':raise
                 self.db.execute('DELETE FROM tracking_screenshots WHERE id=?',(row['id'],));count+=1

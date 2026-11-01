@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const events={},calls=[],native=[],notices=[],fields=new Map();let recordHTML='',html='',renders=0,advanced='',nextRead=null;
+const panel={classList:{remove(){}},get innerHTML(){return html;},set innerHTML(value){html=value;renders++;for(const id of ['shot-status','shot-recent','shot-error'])fields.set('#'+id,{textContent:''});},querySelector:s=>fields.get(s)||null};
+const recording={classList:{remove(){}},set innerHTML(v){recordHTML=v;},querySelector:()=>null};
+let value={settings:{titles:true,idle_seconds:180,retention_days:365,screenshots_enabled:false,screenshot_interval:60,screenshot_retention_days:7,enabled:true,paused_until:0},status:{connected:true,accessibility:true,screen_recording:false,last_screenshot_at:null}};
+const context={document:{activeElement:null,hidden:false,querySelector:s=>s==='#screenshot-settings'?panel:s==='#tracking-record-settings'?recording:null,addEventListener:(n,f)=>(events[n]??=[]).push(f)},page:'settings',state:{authenticated:true,can_manage:true,settings:{statistics:true}},modal:{open:false},Date,Number,Object,Set,JSON,Promise,scrollX:0,scrollY:480,scrollTo(){},setInterval(){},esc:s=>String(s),settingToggle:()=>'<div>记录使用统计</div>',options:(items,current)=>Object.entries(items).map(([v,label])=>`<option value="${v}" ${String(v)===String(current)?'selected':''}>${label}</option>`).join(''),toast:s=>notices.push(s),api:async(path,data)=>{calls.push({path,data});if(data){value.settings={...value.settings,...data};return {...value.settings};}if(nextRead){const read=nextRead;nextRead=null;return read;}return JSON.parse(JSON.stringify(value));},HotTurkeyTracking:{openSettings:async tab=>{advanced=tab;}},webkit:{messageHandlers:{native:{postMessage:x=>native.push(x)}}}};
+context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync('web/screenshot-settings.js','utf8'),context);
+const settle=async()=>{for(let n=0;n<12;n++)await Promise.resolve();};
+const click=dataset=>{for(const f of events.click||[])f({target:{dataset,closest(){return this;}}});};
+(async()=>{
+ await settle();assert(recordHTML.includes('窗口信息'));assert(recordHTML.includes('已允许'));assert(!recordHTML.includes('允许读取窗口信息'));assert(recordHTML.includes('data-record-setting="idle_seconds"'));assert(recordHTML.includes('data-record-setting="retention_days"'));assert(html.includes('<h2>截图</h2>'));assert(html.includes('>原图</span>'));assert(!html.includes('ⓘ'));assert(html.includes('aria-haspopup="menu"'));assert(!html.includes('仅保存在本机'));assert(!html.includes('新截图储存'));assert(html.includes('打开文件夹'));assert(html.includes('aria-label="截图显示器"'));assert(html.includes('>1 分钟</span>'));assert(html.includes('aria-checked="false"'));assert.equal(native.length,0,'mount never requests capture permission');
+ click({shotSetting:'screenshots_enabled'});await settle();assert.equal(calls.filter(v=>v.data).length,1);assert.deepEqual(JSON.parse(JSON.stringify(calls.find(v=>v.data).data)),{screenshots_enabled:true});assert(html.includes('等待屏幕录制权限'));
+ click({shotAction:'permission'});assert.equal(native[0].op,'tracking-permission');assert.equal(native[0].kind,'screen');
+ click({shotAction:'advanced'});await settle();assert.equal(advanced,'screenshots');
+ const before=renders;value.status.last_screenshot_at=Date.now()/1000;value.status.last_sample=Date.now();await context.HotTurkeyScreenshotSettings.refresh();assert.equal(renders,before,'polling status must not replace controls while the user is editing');assert(!html.includes('最近截图'));
+ value.settings.screenshot_interval=37;await context.HotTurkeyScreenshotSettings.refresh();assert(html.includes('37 秒'),'custom existing intervals remain available');
+ click({shotQuality:'120',shotPreference:'screenshot_interval'});await settle();assert.equal(calls.filter(v=>v.data).at(-1).data.screenshot_interval,120);
+ click({shotQuality:'30',shotPreference:'screenshot_retention_days'});await settle();assert.equal(calls.filter(v=>v.data).at(-1).data.screenshot_retention_days,30);
+ click({shotQuality:'high',shotPreference:'screenshot_quality'});await settle();assert.equal(calls.filter(v=>v.data).at(-1).data.screenshot_quality,'high');
+ value.status.accessibility=false;await context.HotTurkeyScreenshotSettings.refresh();assert(recordHTML.includes('允许读取窗口信息'));click({shotAction:'window-permission'});assert.equal(native.at(-1).kind,'accessibility');
+ click({recordSetting:'titles'});await settle();assert.equal(calls.filter(v=>v.data).at(-1).data.titles,false);
+ let resolve;nextRead=new Promise(r=>resolve=r);const pending=context.HotTurkeyScreenshotSettings.refresh();const old=html;context.page='overview';resolve({settings:{screenshots_enabled:false},status:{}});await pending;assert.equal(html,old,'a late settings response cannot modify another page');
+ context.page='settings';context.state.authenticated=false;const requests=calls.length;await context.HotTurkeyScreenshotSettings.refresh();assert.equal(calls.length,requests,'protected settings never fetch screenshots without authentication');
+ console.log('7 screenshot settings defaults, isolated saves, permissions, stable polling and privacy-race checks passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

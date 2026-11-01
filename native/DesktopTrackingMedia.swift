@@ -48,10 +48,14 @@ final class DesktopTrackingMedia: NSObject, NSWindowDelegate {
     }
 
     static func imageFile(directory: URL, relative: String, id: String) throws -> (URL, NSImage) {
+        let (url,image,_) = try imageResource(directory:directory,relative:relative,id:id)
+        return (url,image)
+    }
+    static func imageResource(directory: URL, relative: String, id: String, storageRoot:URL? = nil) throws -> (URL, NSImage, Data) {
         func failure() -> NSError { NSError(domain:"HotTurkey.Screenshots",code:1,userInfo:[NSLocalizedDescriptionKey:"截图文件不可用，请刷新后重试。"]) }
         guard relative.range(of:#"^\d{4}-\d{2}-\d{2}/[a-f0-9]{32}\.(jpg|png|webp)$"#,options:.regularExpression) != nil,
               id.range(of:#"^[a-f0-9]{32}$"#,options:.regularExpression) != nil else { throw failure() }
-        let root=directory.appendingPathComponent("screenshots",isDirectory:true),file=root.appendingPathComponent(relative)
+        let root=storageRoot ?? directory.appendingPathComponent("screenshots",isDirectory:true),file=root.appendingPathComponent(relative)
         guard file.deletingPathExtension().lastPathComponent==id else { throw failure() }
         for url in [root,file.deletingLastPathComponent()] {
             var info=stat()
@@ -69,16 +73,30 @@ final class DesktopTrackingMedia: NSObject, NSWindowDelegate {
         guard headerOK,let bitmap=NSBitmapImageRep(data:data),bitmap.pixelsWide>0,bitmap.pixelsHigh>0,
               bitmap.pixelsWide<=16384,bitmap.pixelsHigh<=16384,bitmap.pixelsWide*bitmap.pixelsHigh<=64_000_000 else { throw failure() }
         let image=NSImage(size:NSSize(width:bitmap.pixelsWide,height:bitmap.pixelsHigh));image.addRepresentation(bitmap)
-        return (file,image)
+        return (file,image,data)
     }
 
     func handle(_ value: [String:Any], directory: URL, parent: NSWindow, completion: @escaping ([String:Any]) -> Void) {
         let action=value["action"] as? String ?? ""
         if action=="close" { close();completion(["ok":true]);return }
-        guard ["window","update","copy","open","open-with"].contains(action),
+        guard ["window","update","copy","open","open-with","reveal","save-as"].contains(action),
               let relative=value["file"] as? String,let id=value["id"] as? String else { completion(["ok":false,"error":"图片操作无效"]);return }
         do {
-            let (file,image)=try Self.imageFile(directory:directory,relative:relative,id:id)
+            let root=(value["verifiedDirectory"] as? String).map { URL(fileURLWithPath:$0,isDirectory:true) }
+            let (file,image,data)=try Self.imageResource(directory:directory,relative:relative,id:id,storageRoot:root)
+            if action=="reveal" { NSWorkspace.shared.activateFileViewerSelecting([file]);completion(["ok":true]);return }
+            if action=="save-as" {
+                guard parent.attachedSheet==nil else { completion(["ok":false,"error":"请先关闭当前弹窗"]);return }
+                let panel=NSSavePanel();panel.title="存储截图";panel.nameFieldStringValue=file.lastPathComponent
+                panel.allowedContentTypes=[file.pathExtension=="png" ? .png : file.pathExtension=="webp" ? .webP : .jpeg]
+                panel.beginSheetModal(for:parent) { result in
+                    guard result == .OK,let destination=panel.url else { completion(["ok":true,"cancelled":true]);return }
+                    let temporary=destination.deletingLastPathComponent().appendingPathComponent(".hotturkey-screenshot-\(UUID().uuidString).part")
+                    do { try data.write(to:temporary,options:.atomic);try DesktopFiles.commit(temporary:temporary,destination:destination);completion(["ok":true]) }
+                    catch { try? FileManager.default.removeItem(at:temporary);completion(["ok":false,"error":"无法存储截图"]) }
+                }
+                return
+            }
             if action=="copy" {
                 let pasteboard=self.pasteboard;pasteboard.clearContents()
                 completion(["ok":pasteboard.writeObjects([image])]);return

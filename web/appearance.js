@@ -70,7 +70,7 @@
  }
  let pending=false,lastNative='';
  const semanticColors=new Set(['--bg','--panel','--ink','--muted','--line','--accent','--tint','--field','--hover','--green','--green-text','--green-tint','--danger','--warning','--warning-text','--warning-tint','--focus','--selection','--selection-ink','--primary-ink','--inactive-selection','--disabled','--link']);
- window.HotTurkeyAppearance={apply(value){
+ window.HotTurkeyAppearance={sync(){decorate();},apply(value){
   if(!window.HotTurkeyNativeShell||!value||typeof value!=='object')return;
   for(const [key,color] of Object.entries(value.colors||{}))if(semanticColors.has(key)&&typeof color==='string'&&CSS.supports('color',color))document.body.style.setProperty(key,color);
   let nativeSymbols=0;
@@ -160,6 +160,6 @@
  function schedule(){if(!pending){pending=true;requestAnimationFrame(decorate);}}
  window.addEventListener('resize',schedule);
  document.addEventListener('hotturkey:text-size',schedule);
- new MutationObserver(schedule).observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','open','data-appearance']});
+ new MutationObserver(schedule).observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','open','hidden','data-appearance']});
  decorate();
 })();
