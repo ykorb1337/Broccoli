@@ -46,6 +46,8 @@ class Service:
         self.token=secrets.token_urlsafe(32)
         self.auth_sessions={}
         self.auth_retry=0
+        self.google_calendar=None
+        self.google_calendar_lock=threading.Lock()
         self.enforce=enforce
         self.worker_error=None
         self.worker_state="starting" if enforce else "disabled"
@@ -130,7 +132,7 @@ class Service:
                     return self.respond(200,value)
                 if self.command!="GET": return self.respond(405,{"error":"Method not allowed"})
                 path="index.html" if parsed.path=="/" else parsed.path.lstrip("/")
-                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","calendar.js":"application/javascript","notifications.js":"application/javascript","text-size.js":"application/javascript","appearance.js":"application/javascript","style.css":"text/css","tracking.js":"application/javascript","tracking-export.js":"application/javascript","screenshot-settings.js":"application/javascript","screenshot-files.js":"application/javascript","tracking-find.js":"application/javascript","tracking-day-data.js":"application/javascript","public-suffixes.js":"application/javascript","tracking-clock.js":"application/javascript","tracking-autotags.js":"application/javascript","tracking-timesheet.js":"application/javascript","tracking-timesheet-usage.js":"application/javascript","tracking-clipboard.js":"application/javascript","tracking-tags.js":"application/javascript","tracking-media.js":"application/javascript","tracking-report-ui.js":"application/javascript","tracking-chart.js":"application/javascript","tracking-schedule.js":"application/javascript","tracking.css":"text/css","icon.svg":"image/svg+xml"}
+                allowed={"index.html":"text/html; charset=utf-8","app.js":"application/javascript","calendar.js":"application/javascript","google-calendar.js":"application/javascript","google-calendar-data.js":"application/javascript","google-calendar.css":"text/css","notifications.js":"application/javascript","text-size.js":"application/javascript","appearance.js":"application/javascript","style.css":"text/css","tracking.js":"application/javascript","tracking-export.js":"application/javascript","screenshot-settings.js":"application/javascript","screenshot-files.js":"application/javascript","tracking-find.js":"application/javascript","tracking-day-data.js":"application/javascript","public-suffixes.js":"application/javascript","tracking-clock.js":"application/javascript","tracking-autotags.js":"application/javascript","tracking-timesheet.js":"application/javascript","tracking-timesheet-usage.js":"application/javascript","tracking-clipboard.js":"application/javascript","tracking-tags.js":"application/javascript","tracking-media.js":"application/javascript","tracking-report-ui.js":"application/javascript","tracking-chart.js":"application/javascript","tracking-schedule.js":"application/javascript","tracking.css":"text/css","icon.svg":"image/svg+xml"}
                 if path not in allowed: return self.respond(404,{"error":"Not found"})
                 return self.respond(200,(ROOT/"web"/path).read_bytes(),allowed[path])
             def do_GET(self):
@@ -152,6 +154,12 @@ class Service:
 
     def api(self,path,method,data,query,headers):
         e=self.engine
+        if path.startswith('/api/google-calendar/'):
+            if not self.authorized(headers):raise PolicyError('请先输入设置密码')
+            from .google_calendar import GoogleCalendar,dispatch
+            with self.google_calendar_lock:
+                if self.google_calendar is None:self.google_calendar=GoogleCalendar(self.store.directory)
+            return dispatch(self.google_calendar,path[len('/api/google-calendar/'):],method,data,query)
         if path.startswith('/api/tracking/'):
             if not self.authorized(headers):raise PolicyError('请先输入设置密码')
             if path=='/api/tracking/retry' and method=='POST':
@@ -346,6 +354,7 @@ class Service:
         try: self.http.serve_forever()
         finally:
             self.stop.set()
+            if self.google_calendar:self.google_calendar.close()
             self.http.server_close()
             worker_thread.join(timeout=5)
             if tracker_thread:tracker_thread.join(timeout=6)

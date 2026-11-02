@@ -97,7 +97,7 @@ def main():
             with path.open('rb') as stream:magic=stream.read(4)
             if magic in {b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca'}:
                 subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(path)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"25","CFBundleShortVersionString":"0.5.3","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
+    info={"CFBundleName":"HotTurkey","CFBundleDisplayName":"HotTurkey","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"26","CFBundleShortVersionString":"0.6.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"HotTurkey uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
     info['CFBundleIconFile']='HotTurkey.icns'
     (app/"Info.plist").write_bytes(plistlib.dumps(info))
     # Ad-hoc signing allows local execution; distribution still needs a Developer ID.

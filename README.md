@@ -21,6 +21,8 @@ service is experimental and is not enabled by the installer.
 
 HotTurkey 是受 Cold Turkey Blocker 公开功能启发、独立实现的开源 macOS 专注工具。当前已有可运行的应用、后台、扩展与命令行，**尚未完整覆盖原版功能**。完整对照见 [功能覆盖表](docs/PARITY.md)，验证记录见 [验证报告](docs/VALIDATION.md)。与 Cold Turkey Software 无关联；未使用其源代码、素材或授权系统。
 
+每周日程可切换到独立的 Google 日历查看与编辑器。首次使用需导入自己的桌面 OAuth 客户端配置；与拦截规则和睡眠计划无关联。详见 [Google 日历设置](docs/GOOGLE-CALENDAR.md)。
+
 ## 打开应用
 
 本机应用会安装到 `~/Applications/HotTurkey.app`；构建副本位于 `build/HotTurkey.app`。双击打开即可连接已安装的后台。交互验收使用 `python3 -B scripts/preview_today.py`，将当日本机真实统计复制到独立资料库，不启动拦截或记录。

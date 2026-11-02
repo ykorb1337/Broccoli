@@ -15,4 +15,8 @@ for(const kind of ['textarea','button','select','editable','date','time','dateti
 assert.equal(key('save-editor','textarea',{metaKey:true}).clicked,true);checks++;
 for(const extra of [{isComposing:true},{keyCode:229},{repeat:true},{ctrlKey:true},{altKey:true},{shiftKey:true},{defaultPrevented:true},{key:'Escape'}]){assert.equal(key('save-editor','input',extra).clicked,false);checks++;}
 for(const action of ['save-device','apply-lock','confirm-import','device-emergency-submit']){assert.equal(key(action).clicked,false);checks++;}
+let cancelled=0,prevented=0;context.cancelModal=()=>cancelled++;
+vm.runInContext(source.match(/modal.addEventListener\('cancel',event=>[^\n]+/)[0],context);
+hooks.cancel({target:{type:'file'},preventDefault(){prevented++;}});assert.equal(cancelled,0);assert.equal(prevented,0);checks++;
+hooks.cancel({target:context.modal,preventDefault(){prevented++;}});assert.equal(cancelled,1);assert.equal(prevented,1);checks++;
 console.log(`${checks} modal keyboard, composition, repeat and explicit device/lock confirmation checks passed`);

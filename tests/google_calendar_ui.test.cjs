@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('assert/strict'),fs=require('fs'),vm=require('vm');
+const handlers={},root={innerHTML:''},content={innerHTML:''},calls=[],timers=[],modals=[];
+let connected=false;
+const calendar={id:'remote@example.com',summary:'Remote',primary:true,accessRole:'owner',backgroundColor:'#336699'};
+const fixtureEvent={id:'event',summary:'<unsafe>',start:{dateTime:'2026-11-01T01:30:00-05:00',timeZone:'America/New_York'},end:{dateTime:'2026-11-01T02:30:00-05:00',timeZone:'America/New_York'},etag:'v1',reminders:{useDefault:true}};
+const response=path=>path.includes('/status')?{configured:false,connected}:path.includes('/calendars')?{items:[calendar]}:path.includes('/event?')?fixtureEvent:path.includes('/events?')?{items:[fixtureEvent],synced_at:1}:{};
+const c={Date,Intl,URL,URLSearchParams,Map,Set,page:'schedule',state:{blocks:[{id:'untouched'}]},localStorage:{getItem:()=>null,setItem(){}},document:{querySelector:selector=>selector==='#google-calendar'?root:null,querySelectorAll:()=>[],addEventListener:(name,fn)=>{(handlers[name]??=[]).push(fn);}},setInterval:fn=>timers.push(fn),setTimeout,clearTimeout,api:async(path,data)=>{calls.push({path,data});return response(path);},$:selector=>selector==='#content'?content:root,esc:value=>String(value??'').replace(/</g,'&lt;').replace(/"/g,'&quot;'),btn:()=>'',options:()=>'',field:()=>'',modal:{open:false},closeModal:()=>{},openModal:(...args)=>modals.push(args),toast:()=>{},showModalError:()=>{}};
+c.window=c;vm.createContext(c);for(const file of ['google-calendar-data.js','google-calendar.js'])vm.runInContext(fs.readFileSync('web/'+file,'utf8'),c);
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+ const before=JSON.stringify(c.state);assert(c.HotTurkeyGoogleCalendar.switcher().includes('拦截日程'));assert(!c.HotTurkeyGoogleCalendar.isSelected());
+ c.renderCalendar=()=>c.HotTurkeyGoogleCalendar.render();
+ await handlers.click[0]({target:{closest:selector=>selector==='[data-gc-source]'?{dataset:{gcSource:'google'}}:null}});await tick();
+ assert(root.innerHTML.includes('导入客户端配置'));assert(!root.innerHTML.includes('新建拦截规则'));
+ connected=true;c.HotTurkeyGoogleCalendar.render();await tick();await tick();
+ assert(root.innerHTML.includes('Remote'));assert(root.innerHTML.includes('&lt;unsafe>'));assert(!root.innerHTML.includes('<unsafe>'));
+ assert(calls.every(call=>call.path.startsWith('google-calendar/')));assert(calls.every(call=>call.data===undefined));assert.equal(JSON.stringify(c.state),before);
+ const click=async action=>{await handlers.click[0]({target:{closest:selector=>selector==='[data-gc]'?{dataset:{gc:action,key:'0'},disabled:false,isConnected:false}:null}});await tick();};
+ await click('event');assert.equal(modals.at(-1)[0],'事件详情');
+ const form={'gc-title':{value:'<unsafe>'},'gc-start':{value:'2026-11-01T01:30'},'gc-end':{value:'2026-11-01T02:30'},'gc-zone':{value:'America/New_York'},'gc-all-day':{checked:false},'gc-target':{value:calendar.id},'gc-attendees':{value:''},'gc-location':{value:''},'gc-description':{value:''},'gc-repeat':{value:'none'},'gc-reminder':{value:'default'}};
+ c.$=selector=>form[selector.slice(1)]||root;await click('save');const saved=calls.find(call=>call.path.endsWith('/save'));
+ assert(saved);assert.equal(saved.data.value.start.dateTime,'2026-11-01T01:30:00-05:00');assert.equal(saved.data.etag,'v1');assert.equal(saved.data.calendar,calendar.id);assert(!('attendees' in saved.data.value));assert.equal(JSON.stringify(c.state),before);
+ c.HotTurkeyGoogleCalendar.hide();assert(!root.innerHTML.includes('access_token'));
+ console.log('5 independent source, configuration, escaped view, read-only startup and DST-preserving save scenarios passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

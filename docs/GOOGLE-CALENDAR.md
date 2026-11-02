@@ -1,0 +1,34 @@
+# Google 日历
+
+入口位于“每周日程”顶部的“Google 日历”切换项。它是独立的远程查看和编辑器：不会读取、生成或修改任何拦截规则，也不会与睡眠、锁定或每周重复拦截时段关联。
+
+## 配置与登录
+
+1. 打开 [Google Cloud](https://console.cloud.google.com/)，创建或选择项目。
+2. 在 API 库启用 **Google Calendar API**。
+3. 配置 Google Auth Platform 的品牌信息、受众与数据访问。个人试用可使用测试状态，并把自己的 Google 账号加入测试用户。
+4. 创建 OAuth 客户端，应用类型选择 **桌面应用**，下载 JSON。
+5. 在 HotTurkey 的 Google 日历页导入该 JSON，点击“登录 Google”，在系统浏览器完成授权。
+
+应用请求查看日历列表和读写日历事件权限，不请求规则、截图、Gmail 或 Drive 权限。客户端配置写入本机独立目录，授权令牌保存在 macOS 钥匙串；规则与统计数据库不存这些配置或令牌。预览副本不复制 Google 配置、账号、令牌和日历缓存。
+
+Google 测试状态的授权可能到期，届时重新连接即可。对外分发需要自行完成 Google 的发布、域名和敏感权限验证要求；导入配置不代表已经通过 Google 审核。
+
+## 查看与编辑
+
+- 日、周、月、列表视图；选择一个或多个日历。时间轴使用 Mac 当前时区，事件编辑器保留事件自己的时区。
+- 新建、编辑和删除普通事件，全天事件，重复规则，地点、说明、参与者和提醒。编辑重复事件时可选择单次实例或整组。
+- 周／日视图双击空白新建事件；拖动事件调整时间，底部拖动调整时长。拖动重复事件只修改本次。
+- 保存和删除会写入 Google；有参与者的事件会发送更新通知。没有写入权限和特殊事件类型保留查看及打开 Google 原页入口。
+- 页面打开时定期刷新，也可以手动刷新；没有独立云端推送服务。断网时可查看此前同一日期范围的缓存，缓存状态下关闭编辑，不排队执行离线写入。
+- 保存和删除携带事件版本，其他设备已经修改的事件不会被静默覆盖。
+
+“断开连接”移除本机令牌和缓存，不删除 Google 中的事件。若要撤销 Google 账号对客户端的授权，可在 Google 账号的第三方连接中移除。
+
+这是 Calendar API 客户端，不是 Google 网页的嵌入版本。预约安排、Tasks 和部分 Workspace 专属功能没有在这一版实现。Google 日历没有配置或不可用时，不影响拦截后台。
+
+## 开发与验证
+
+Google 连接器只有进入相关接口时才初始化，网络请求不持有规则数据库的锁；本机 API 沿用管理验证。OAuth 使用系统浏览器、PKCE、一次性 state 和随机本地回调端口，Google 请求不跟随跨站重定向。未配置真实客户端前，仅能验证独立页面、配置校验及隔离模拟接口，不能宣称真实 Google 账号读写通过。
+
+参考：[桌面 OAuth](https://developers.google.com/identity/protocols/oauth2/native-app)、[Calendar API](https://developers.google.com/workspace/calendar/api/v3/reference)、[事件版本控制](https://developers.google.com/workspace/calendar/api/guides/version-resources)。

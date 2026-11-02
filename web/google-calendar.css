@@ -1,0 +1,57 @@
+.schedule-source { align-self:center; flex:none; display:flex; gap:2px; padding:3px; border-radius:8px; background:var(--field); }
+.schedule-source button { min-width:110px; min-height:29px; border:0; padding:4px 14px; border-radius:6px; box-shadow:none; color:var(--muted); background:transparent; }
+.schedule-source button[aria-pressed="true"] { color:var(--ink); background:var(--panel); box-shadow:0 1px 4px #00000016; font-weight:600; }
+.google-calendar { min-height:0; flex:1; display:flex; flex-direction:column; gap:14px; }
+.gc-connect { flex:1; min-height:320px; display:flex; align-items:center; justify-content:center; }
+.gc-connect-inner { max-width:420px; text-align:center; }
+.gc-mark { color:var(--accent); font-size:42px; font-weight:500; margin-bottom:12px; }
+.gc-connect h2 { font-size:23px; font-weight:600; }
+.gc-connect p { margin:12px 0 24px; color:var(--muted); font-size:13px; line-height:1.6; }
+.gc-connect .toolbar { justify-content:center; }
+.gc-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; flex:none; }
+.gc-toolbar h2 { margin:0 8px; font-size:19px; font-weight:600; }
+.gc-toolbar .gc-view { display:flex; gap:2px; background:var(--field); padding:2px; border-radius:7px; }
+.gc-view button { border:0; box-shadow:none; background:transparent; min-width:38px; padding:4px 8px; min-height:27px; }
+.gc-view button[aria-pressed="true"] { background:var(--panel); box-shadow:0 1px 3px #0001; }
+.gc-calendars { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; }
+.gc-calendar-choice { display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
+.gc-calendar-choice input { accent-color:var(--calendar-color,var(--accent)); }
+.gc-status { color:var(--muted); font-size:12px; margin-left:auto; }
+.gc-alert { padding:9px 12px; border-radius:8px; background:var(--warning-tint); color:var(--warning-text); font-size:13px; }
+.gc-scroller { flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+.gc-week { --days:7; display:grid; grid-template-columns:58px repeat(var(--days),minmax(110px,1fr)); min-width:min-content; grid-template-rows:60px auto minmax(720px,1fr); min-height:820px; height:100%; }
+.gc-heading { position:sticky; top:0; z-index:5; min-height:60px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; background:var(--panel); border-bottom:1px solid var(--line); color:var(--muted); font-size:12px; }
+.gc-heading strong { width:29px; height:29px; display:grid; place-items:center; font-size:19px; color:var(--ink); font-weight:500; }
+.gc-heading.today strong { border-radius:50%; background:var(--accent); color:var(--primary-ink); }
+.gc-all-day { max-height:100px; overflow:auto; padding:3px; border-left:1px solid var(--line); border-bottom:1px solid var(--line); min-height:28px; }
+.gc-all-label { color:var(--muted); font-size:11px; text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); }
+.gc-hours { position:relative; background:var(--panel); }
+.gc-hours span { position:absolute; right:8px; color:var(--muted); font-size:12px; line-height:1; transform:translateY(-50%); }
+.gc-hours span:first-child { transform:none; }
+.gc-day { position:relative; border-left:1px solid var(--line); background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--line) 35%,transparent) 1px,transparent 1px); background-size:100% calc(100% / 24),100% calc(100% / 48); touch-action:none; }
+.gc-day.today { background-color:color-mix(in srgb,var(--accent) 2%,var(--panel)); }
+.gc-event { --event-color:var(--accent); display:block; padding:4px 6px; min-height:0; min-width:0; border:0; border-left:3px solid var(--event-color); border-radius:4px; background:color-mix(in srgb,var(--event-color) 14%,var(--panel)); color:var(--ink); box-shadow:none; text-align:left; overflow:hidden; line-height:1.35; }
+.gc-event:hover { background:color-mix(in srgb,var(--event-color) 23%,var(--panel)); }
+.gc-day>.gc-event { position:absolute; cursor:pointer; }
+.gc-event b { display:block; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gc-event small { display:block; font-size:12px; white-space:nowrap; }
+.gc-resize { position:absolute; bottom:0; left:0; right:0; height:7px; cursor:ns-resize; }
+.gc-month { display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); grid-template-rows:32px repeat(6,minmax(100px,1fr)); min-width:720px; min-height:680px; height:100%; }
+.gc-month-day { padding:6px; border-top:1px solid var(--line); border-left:1px solid var(--line); min-width:0; overflow:auto; }
+.gc-month-day.outside { background:var(--hover); color:var(--muted); }
+.gc-month-day>button:first-child { border:0; box-shadow:none; background:transparent; width:27px; min-height:27px; padding:2px; margin-bottom:5px; font-variant-numeric:tabular-nums; }
+.gc-month-day.today>button:first-child { border-radius:50%; background:var(--accent); color:var(--primary-ink); }
+.gc-month-day .gc-event,.gc-all-day .gc-event { width:100%; margin:2px 0; padding:3px 5px; }
+.gc-month-day .gc-event b { font-weight:500; font-size:12px; }
+.gc-agenda { width:100%; border-collapse:collapse; font-size:13px; }
+.gc-agenda td { padding:12px 14px; border-bottom:1px solid var(--line); }
+.gc-agenda td:first-child { width:120px; color:var(--muted); }
+.gc-agenda .gc-event { background:transparent; width:100%; }
+.gc-empty { padding:48px 20px; text-align:center; color:var(--muted); font-size:13px; }
+.gc-config-note { color:var(--muted); font-size:13px; line-height:1.65; }
+.gc-config-note a { color:var(--accent); }
+.gc-editor textarea { min-height:100px; }
+.gc-editor .gc-event-meta { color:var(--muted); font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.gc-editor .gc-event-meta:empty { display:none; }
+.gc-event.dragging { opacity:.75; z-index:10; box-shadow:0 3px 12px #0002; }
+@media(prefers-reduced-motion:no-preference) { .google-calendar { animation:gc-appear .14s ease-out; } @keyframes gc-appear { from { opacity:.4; } to { opacity:1; } } }
