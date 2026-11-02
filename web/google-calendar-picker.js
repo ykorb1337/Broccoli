@@ -1,0 +1,45 @@
+'use strict';
+window.HotTurkeyGooglePicker=(()=>{
+ const D=HotTurkeyGoogleData;let popup=null,origin=null,month=null;
+ const zoneNames=new Map(),zoneOffsets=new Map();
+ const cities={'America/New_York':'纽约','America/Chicago':'芝加哥','America/Denver':'丹佛','America/Los_Angeles':'洛杉矶','Asia/Shanghai':'北京 / 上海','Asia/Hong_Kong':'香港','Asia/Tokyo':'东京','Asia/Singapore':'新加坡','Europe/London':'伦敦','Europe/Paris':'巴黎','Australia/Sydney':'悉尼','UTC':'协调世界时'};
+ const zones=[...new Set(['UTC',Intl.DateTimeFormat().resolvedOptions().timeZone,...(Intl.supportedValuesOf?.('timeZone')||Object.keys(cities))])].filter(Boolean);
+ function zoneText(zone){if(zoneNames.has(zone))return zoneNames.get(zone);try{const label=new Intl.DateTimeFormat('zh-CN',{timeZone:zone,timeZoneName:'long'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value;const text=(cities[zone]||zone.split('/').pop().replaceAll('_',' '))+' · '+label;zoneNames.set(zone,text);return text;}catch{return zone;}}
+ function dateText(value){const date=D.dateOnly(value.slice(0,10));return date.toLocaleDateString('zh-CN',{year:'numeric',month:'short',day:'numeric'});}
+ function field(id,value,allDay,disabled=false){return `<div class="gc-datetime" data-picker-field="${id}"><input type="hidden" id="${id}" value="${esc(value)}"><button type="button" data-gcp="date" data-target="${id}" aria-label="${id==='gc-start'?'开始':'结束'}日期" ${disabled?'disabled':''}>${esc(dateText(value))}<span aria-hidden="true">⌄</span></button>${allDay?'':`<button type="button" data-gcp="time" data-target="${id}" aria-label="${id==='gc-start'?'开始':'结束'}时间" ${disabled?'disabled':''}>${esc(value.slice(11,16)||'09:00')}<span aria-hidden="true">⌄</span></button>`}</div>`;}
+ function zoneField(id,value,disabled=false){return `<div class="gc-zone-field"><input id="${id}" type="hidden" value="${esc(value)}"><button type="button" data-gcp="zone" data-target="${id}" aria-label="事件时区" aria-haspopup="listbox" title="${esc(value)}" ${disabled?'disabled':''}>${esc(zoneText(value))}<span aria-hidden="true">⌄</span></button></div>`;}
+ function close(focus=true){if(!popup)return false;popup.remove();popup=null;const button=origin;origin=null;if(focus&&button?.isConnected)button.focus({preventScroll:true});return true;}
+ function position(){if(!popup||!origin)return;const rect=origin.getBoundingClientRect(),box=popup.getBoundingClientRect();const scale=Number(document.body.style.zoom)||1;popup.style.left=Math.max(10,Math.min(innerWidth-box.width-10,rect.left))/scale+'px';popup.style.top=(rect.bottom+box.height+8<innerHeight?rect.bottom+6:Math.max(10,rect.top-box.height-6))/scale+'px';}
+ function open(button,kind){close(false);origin=button;popup=document.createElement('div');popup.className='gc-picker-popover';popup.dataset.target=button.dataset.target;popup.dataset.kind=kind;popup.setAttribute('role','dialog');popup.setAttribute('aria-label',kind==='date'?'选择日期':kind==='time'?'选择时间':'选择时区');modal.appendChild(popup);
+  const value=document.getElementById(button.dataset.target).value;
+  if(kind==='date'){month=D.dateOnly(value.slice(0,10));month.setDate(1);drawDate();}
+  if(kind==='time')drawTime();
+  if(kind==='zone'){popup.classList.add('gc-zone-popover');popup.innerHTML='<input id="gc-zone-search" type="search" placeholder="搜索城市或时区" aria-label="搜索时区"><div class="gc-zone-options" role="listbox" aria-label="时区"></div>';drawZones('');popup.querySelector('input').focus({preventScroll:true});}
+  position();
+ }
+ function apply(value,finish=true){const id=popup.dataset.target,input=document.getElementById(id),kind=popup.dataset.kind;input.value=value;
+  if(kind==='zone'){origin.childNodes[0].textContent=zoneText(value);origin.title=value;}else{const date=document.querySelector(`[data-gcp=date][data-target="${id}"]`),time=document.querySelector(`[data-gcp=time][data-target="${id}"]`);if(date)date.childNodes[0].textContent=dateText(value);if(time)time.childNodes[0].textContent=value.slice(11,16);}
+  input.dispatchEvent(new Event('change',{bubbles:true}));if(finish)close();
+ }
+ function drawDate(){const target=document.getElementById(popup.dataset.target).value.slice(0,10),start=new Date(month);start.setDate(1-(start.getDay()+6)%7);const today=D.dayKey(new Date());
+  popup.innerHTML=`<div class="gc-picker-month"><button data-gcp="month-prev" aria-label="上个月">‹</button><b>${month.toLocaleDateString('zh-CN',{year:'numeric',month:'long'})}</b><button data-gcp="month-next" aria-label="下个月">›</button></div><div class="gc-picker-days">${['一','二','三','四','五','六','日'].map(day=>`<span>${day}</span>`).join('')}${Array.from({length:42},(_,i)=>{const date=D.addDays(start,i),key=D.dayKey(date);return `<button data-gcp="choose-date" data-date="${key}" class="${date.getMonth()===month.getMonth()?'':'outside'} ${key===today?'today':''} ${key===target?'selected':''}" aria-label="${key}" aria-pressed="${key===target}">${date.getDate()}</button>`;}).join('')}</div><div class="gc-picker-bottom"><button data-gcp="choose-date" data-date="${today}">今天</button><button data-gcp="close">完成</button></div>`;
+ }
+ function drawTime(){const value=document.getElementById(popup.dataset.target).value,[hour,minute]=(value.slice(11)||'09:00').split(':').map(Number);popup.classList.add('gc-time-popover');
+  popup.innerHTML=`<div class="gc-time-columns">${[['hour','小时',24,hour],['minute','分钟',60,minute]].map(([key,label,total,selected])=>`<div><b>${label}</b><div class="gc-time-options" role="listbox" aria-label="${label}">${Array.from({length:total},(_,i)=>`<button data-gcp="choose-time" data-part="${key}" data-value="${i}" role="option" aria-selected="${i===selected}" tabindex="${i===selected?0:-1}" class="${i===selected?'selected':''}">${String(i).padStart(2,'0')}</button>`).join('')}</div></div>`).join('')}</div><div class="gc-picker-bottom"><button data-gcp="close">完成</button></div>`;
+  for(const col of popup.querySelectorAll('.gc-time-options')){const row=col.querySelector('.selected');col.scrollTop=Math.max(0,row.offsetTop-col.offsetTop-72);}
+ }
+ function zoneOffset(zone){if(!zoneOffsets.has(zone))zoneOffsets.set(zone,new Intl.DateTimeFormat('en',{timeZone:zone,timeZoneName:'shortOffset'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value);return zoneOffsets.get(zone);}
+ function drawZones(query){const text=query.trim().toLowerCase(),current=document.getElementById(popup.dataset.target).value;const list=[...new Set([current,...zones])].filter(zone=>(zone+' '+zoneText(zone)).toLowerCase().includes(text));popup.querySelector('.gc-zone-options').innerHTML=list.map(zone=>`<button data-gcp="choose-zone" data-zone="${esc(zone)}" role="option" aria-selected="${zone===current}" class="${zone===current?'selected':''}"><b>${esc(cities[zone]||zone.split('/').pop().replaceAll('_',' '))}</b><small>${esc(zone+' · '+zoneOffset(zone))}</small></button>`).join('')||'<p class="gc-empty">没有匹配的时区</p>';}
+ document.addEventListener('click',event=>{const button=event.target.closest('[data-gcp]');if(!button){if(popup&&!popup.contains(event.target))close(false);return;}const kind=button.dataset.gcp;if(['date','time','zone'].includes(kind)){open(button,kind);return;}if(!popup)return;
+  if(kind==='close'){close();return;}if(kind==='month-prev'||kind==='month-next'){month.setMonth(month.getMonth()+(kind==='month-next'?1:-1));drawDate();return;}
+  if(kind==='choose-date'){const input=document.getElementById(popup.dataset.target);apply(button.dataset.date+(input.value.includes('T')?'T'+input.value.slice(11):''));return;}
+  if(kind==='choose-zone'){apply(button.dataset.zone);return;}
+  if(kind==='choose-time'){const input=document.getElementById(popup.dataset.target),parts=input.value.slice(11,16).split(':');parts[button.dataset.part==='hour'?0:1]=String(button.dataset.value).padStart(2,'0');apply(input.value.slice(0,10)+'T'+parts.join(':'),false);drawTime();return;}
+ });
+ document.addEventListener('input',event=>{if(event.target.id==='gc-zone-search'&&popup)drawZones(event.target.value);});
+ document.addEventListener('keydown',event=>{if(!popup)return;if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}const row=event.target.closest('.gc-time-options [role=option]');if(row&&['ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const rows=[...row.parentElement.children],next=rows[(rows.indexOf(row)+(event.key==='ArrowDown'?1:-1)+rows.length)%rows.length];next.click();popup.querySelector(`[data-part="${next.dataset.part}"][data-value="${next.dataset.value}"]`)?.focus();}} ,true);
+ window.addEventListener('resize',()=>close(false));
+ function setAllDay(id,allDay){const input=document.getElementById(id);let value=allDay?input.value.slice(0,10):input.value.slice(0,10)+'T'+(id==='gc-start'?'09:00':'10:00');if(allDay&&id==='gc-end'&&input.value.includes('T')&&input.value.slice(11,16)==='00:00')value=D.dayKey(D.addDays(D.dateOnly(value),-1));const container=input.parentElement;container.outerHTML=field(id,value,allDay);}
+
+ return {field,zone:zoneField,zoneText,close,setAllDay};
+})();

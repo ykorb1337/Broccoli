@@ -21,7 +21,9 @@ from .calendar_credentials import CalendarCredentials
 
 API='https://www.googleapis.com/calendar/v3/'
 TOKEN='https://oauth2.googleapis.com/token'
-SCOPES=['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events']
+BASE_SCOPES=['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events']
+LABEL_SCOPE='https://www.googleapis.com/auth/calendar.calendars.readonly'
+SCOPES=BASE_SCOPES+[LABEL_SCOPE]
 class CalendarHTTPError(Exception):
     def __init__(self,status):self.status=status
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -78,7 +80,7 @@ class GoogleCalendar:
         self.directory=Path(directory)/'google-calendar';self.directory.mkdir(mode=0o700,exist_ok=True)
         self.config_path=self.directory/'client.json';self.cache_path=self.directory/'cache.json'
         self.vault=vault or CalendarCredentials(self.directory);self.request=request;self.lock=threading.RLock()
-        self.pending=None;self.oauth=None;self.error='';self.generation=0;self._credentials=None
+        self.pending=None;self.oauth=None;self.error='';self.generation=0;self._credentials=None;self.label_cache={}
     def config(self):
         if not self.config_path.exists():return {}
         return json.loads(self.config_path.read_text())
@@ -89,7 +91,7 @@ class GoogleCalendar:
         with self.lock:
             config=self.config();connected=bool(self.credentials().get('refresh_token') or self.credentials().get('access_token')) if config else False
             if self.pending and self.pending['expires']<time.monotonic():self.pending=None;self.error='登录已过期，请重试'
-            return {'configured':bool(config),'client_id':config.get('client_id',''),'connected':connected,'pending':bool(self.pending),'error':self.error}
+            return {'configured':bool(config),'client_id':config.get('client_id',''),'connected':connected,'pending':bool(self.pending),'error':self.error,'label_permission':connected and LABEL_SCOPE in self.credentials().get('granted_scopes',[])}
     def configure(self,value):
         with self.lock:
             installed=value.get('installed') if isinstance(value,dict) else None
@@ -138,12 +140,13 @@ class GoogleCalendar:
             except (CalendarHTTPError,PolicyError):self.error='Google 登录失败，请检查客户端配置后重试';raise PolicyError(self.error) from None
             if not value.get('access_token') or not value.get('refresh_token'):self.error='未取得离线授权，请重新连接 Google 日历';raise PolicyError(self.error)
             granted=set(value.get('scope','').split())
-            if not set(SCOPES)<=granted:self.error='请允许查看日历列表及编辑日历事件后重试';raise PolicyError(self.error)
-            self._save_credentials(value);self._clear_cache()
+            if not set(BASE_SCOPES)<=granted:self.error='请允许查看日历列表及编辑日历事件后重试';raise PolicyError(self.error)
+            self._save_credentials(value);self._clear_cache();self.label_cache.clear()
     def _save_credentials(self,value):
         if any(not isinstance(value.get(k),str) or not 1<=len(value[k])<=16384 for k in ['access_token','refresh_token']):raise PolicyError('Google 返回的授权无效')
         expires=max(0,min(float(value.get('expires_in',3600)),86400)-60)
-        value={k:value[k] for k in ['access_token','refresh_token'] if k in value};value['expires_at']=time.time()+expires
+        granted=value.get('scope','').split() if isinstance(value.get('scope'),str) else value.get('granted_scopes',[])
+        value={k:value[k] for k in ['access_token','refresh_token'] if k in value};value['expires_at']=time.time()+expires;value['granted_scopes']=granted
         self.vault.save(value);self._credentials=value
     def _token(self):
         stored=self.credentials()
@@ -176,6 +179,17 @@ class GoogleCalendar:
             page=result.get('nextPageToken')
             if not page:return {'items':items}
         raise PolicyError('日历数量过多')
+    @synchronized
+    def labels(self,calendar):
+        key=identifier(calendar);cached=self.label_cache.get(calendar)
+        if cached and cached['until']>time.monotonic():return cached['value']
+        try:
+            value=self.call('GET','calendars/'+key)
+            items=[{k:label[k] for k in ['id','name','backgroundColor'] if k in label} for label in value.get('labelProperties',{}).get('eventLabels',[])]
+            result={'items':items,'needs_authorization':False}
+        except PolicyError as error:
+            result={'items':[],'needs_authorization':LABEL_SCOPE not in self.credentials().get('granted_scopes',[]),'error':str(error)}
+        self.label_cache[calendar]={'until':time.monotonic()+300,'value':result};return result
     @synchronized
     def events(self,calendar,since,until):
         a=moment({'dateTime':since})[1];b=moment({'dateTime':until})[1]
@@ -236,17 +250,20 @@ class GoogleCalendar:
             if self.cache_path.exists():self.cache_path.unlink()
     def disconnect(self):
         with self.lock:
-            self.cancel();self.vault.delete();self._credentials={};self._clear_cache();self.error=''
+            self.cancel();self.vault.delete();self._credentials={};self._clear_cache();self.label_cache.clear();self.error=''
         return {'ok':True}
     def close(self):
         self.cancel()
         if self.oauth:self.oauth.shutdown();self.oauth.server_close();self.oauth=None
 
 def dispatch(client,path,method,data,query):
+    if getattr(client,'read_only',False) and method!='GET':raise PolicyError('只读日历预览不能连接或修改 Google 账号')
     get=lambda key:query.get(key,[''])[0]
     if method=='GET':
         if path=='status':return client.status()
         if path=='calendars':return client.calendars()
+        if path=='colors':return client.call('GET','colors')
+        if path=='labels':return client.labels(get('calendar'))
         if path=='events':return client.events(get('calendar'),get('since'),get('until'))
         if path=='event':return client.get(get('calendar'),get('event'))
     if method=='POST':

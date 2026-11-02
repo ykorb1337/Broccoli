@@ -79,6 +79,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=Path,default=Path.home()/'Library/Application Support/HotTurkey')
     parser.add_argument('--day',default=dt.datetime.now().astimezone().date().isoformat())
+    parser.add_argument('--calendar-snapshot',action='store_true',help='额外读取安装版日历缓存，只读展示，不复制 Google 凭据')
     parser.add_argument('--port',type=int,default=0)
     parser.add_argument('--output',type=Path,default=ROOT/'build/current-day-preview-url.txt')
     args=parser.parse_args()
@@ -86,6 +87,9 @@ def main():
         service=Service(directory,port=args.port,enforce=False)
         try:
             proof=copy_today(args.source,service,args.day)
+            if args.calendar_snapshot:
+                from hotturkey.google_calendar_preview import attach_snapshot
+                proof.update(attach_snapshot(args.source,service))
             args.output.parent.mkdir(parents=True,exist_ok=True)
             args.output.write_text(service.origin+'/#token='+service.token);args.output.chmod(0o600)
             args.output.with_name(args.output.stem+'-proof.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2))

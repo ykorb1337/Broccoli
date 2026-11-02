@@ -314,8 +314,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             return
         }
         if let body=message.body as? [String:Any],body["op"] as? String=="google-calendar-open",
-           let text=body["url"] as? String,let url=URL(string:text),url.scheme=="https",url.user==nil,url.password==nil,
-           ["accounts.google.com","calendar.google.com","meet.google.com","console.cloud.google.com","developers.google.com"].contains(url.host ?? ""),url.port==nil {
+           let text=body["url"] as? String,let url=URL(string:text),DesktopLinks.allowsGoogleCalendar(url) {
             NSWorkspace.shared.open(url);return
         }
         if let body=message.body as? [String:Any],body["op"] as? String=="notification-permission",

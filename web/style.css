@@ -101,7 +101,7 @@ h2 { margin:0; font-size:15px; font-weight:650; letter-spacing:-.2px; }
 h3 { margin:0; font-size:13px; font-weight:600; }
 p { margin:8px 0; }
 p:empty { display:none; }
-#content { max-width:1020px; margin:0 auto; }
+#content { max-width:1020px; margin:0; }
 .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin-bottom:26px; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
 body[data-view="overview"] .metrics { margin-top:2px; }
 .metric { min-width:0; padding:17px 20px; }
@@ -425,10 +425,11 @@ code { padding:3px 5px; border-radius:4px; background:var(--field); font:11px ui
 .ui-compact { --sidebar-width:68px; --content-inset:18px; }
 /* AppKit supplies native chrome. Keep the original controls in the DOM so
    native toolbar and sidebar events use exactly the existing action handlers. */
-.native-shell { --sidebar-width:0px; }
+.native-shell { --sidebar-width:0px; --content-inset:28px; }
 .native-shell aside,.native-shell main>header,.native-shell footer { display:none; }
-.native-shell main { margin-left:0; min-height:var(--ui-height,100vh); padding:24px 28px; }
-.native-shell.ui-compact main { padding:18px; }
+.native-shell main { margin-left:0; min-height:var(--ui-height,100vh); padding:24px var(--content-inset); }
+.native-shell.ui-compact { --content-inset:18px; }
+.native-shell.ui-compact main { padding:18px var(--content-inset); }
 .native-shell #toast { left:50%; }
 .native-shell body[data-window-active="false"] button.primary { background:var(--inactive-selection); color:var(--ink); }
 .native-shell body[data-window-active="false"] input:focus,.native-shell body[data-window-active="false"] textarea:focus,.native-shell body[data-window-active="false"] select:focus { outline-color:transparent; border-color:var(--line); }

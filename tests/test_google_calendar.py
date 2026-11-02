@@ -119,7 +119,7 @@ class CalendarServiceTests(unittest.TestCase):
    with urllib.request.urlopen(request,timeout=5) as reply:return reply.status,json.load(reply)
   except urllib.error.HTTPError as error:return error.code,json.load(error)
  def test_local_token_and_password_protect_all_routes(self):
-  routes=['status','calendars','events','event','configure','connect','cancel','disconnect','save','delete']
+  routes=['status','calendars','colors','labels','events','event','configure','connect','cancel','disconnect','save','delete']
   for route in routes:self.assertEqual(self.request('google-calendar/'+route,token=False)[0],401)
   self.request('settings','POST',{'password':'fixture-password'})
   for route in routes:self.assertEqual(self.request('google-calendar/'+route)[0],400)
@@ -146,3 +146,31 @@ class CalendarServiceTests(unittest.TestCase):
   try:
    copy_today(source,preview,'2026-11-01');self.assertFalse((Path(target.name)/'google-calendar').exists());self.assertEqual(preview.store.state['blocks'],[])
   finally:preview.http.server_close();preview.tracking.close();preview.store.db.close();preview.singleton.close();target.cleanup()
+
+
+class CalendarSnapshotTests(unittest.TestCase):
+ def test_snapshot_is_read_only_without_credentials(self):
+  from hotturkey.google_calendar_preview import CalendarSnapshot
+  event={'id':'one','summary':'Real source shape','start':{'date':'2026-11-01'},'end':{'date':'2026-11-02'},'attendees':[{'email':'private@example.com','self':True,'responseStatus':'declined'}]}
+  cache={json.dumps(['a','start','end']):{'items':[event],'timeZone':'America/New_York','synced_at':1}}
+  snapshot=CalendarSnapshot(cache);self.assertTrue(snapshot.status()['read_only']);self.assertEqual(snapshot.calendars()['items'][0]['accessRole'],'reader')
+  self.assertEqual(len(snapshot.events('a','2026-11-01T04:00:00Z','2026-11-02T05:00:00Z')['items']),1)
+  self.assertNotIn('email',snapshot.get('a','one')['attendees'][0])
+  for path in ['configure','connect','cancel','disconnect','save','delete']:
+   with self.assertRaises(PolicyError):dispatch(snapshot,path,'POST',{}, {})
+
+class CalendarLabelTests(unittest.TestCase):
+ setUp=CalendarTests.setUp
+ tearDown=CalendarTests.tearDown
+ connected=CalendarTests.connected
+ def test_label_definitions_and_scope_flag(self):
+  self.connected();self.responses=[{'labelProperties':{'eventLabels':[{'id':'ddl','name':'Deadlines','backgroundColor':'#d50000','ignored':1}]}}]
+  result=self.client.labels('a');self.assertEqual(result['items'],[{'id':'ddl','name':'Deadlines','backgroundColor':'#d50000'}]);self.assertNotIn('ignored',result['items'][0])
+  self.client.labels('a');self.assertEqual(len(self.calls),1)
+ def test_partial_label_consent_keeps_base_calendar_access(self):
+  from hotturkey.google_calendar import BASE_SCOPES
+  self.client.configure(CONFIG);self.client.begin();state=self.client.pending['state'];self.responses=[{'access_token':'access','refresh_token':'refresh','scope':' '.join(BASE_SCOPES)}]
+  self.client.complete({'state':[state],'code':['value']});self.assertTrue(self.client.status()['connected']);self.assertFalse(self.client.status()['label_permission'])
+ def test_missing_label_permission_is_nonfatal(self):
+  self.connected();self.responses=[CalendarHTTPError(403)]
+  result=self.client.labels('a');self.assertTrue(result['needs_authorization']);self.assertTrue(self.client.status()['connected'])

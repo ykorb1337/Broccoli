@@ -41,7 +41,7 @@ enum DesktopMenu {
         }
 
         let view = section("显示")
-        let pages = [("overview", "概览"), ("blocks", "拦截规则"), ("schedule", "每周日程"), ("statistics", "使用统计"), ("settings", "设置")]
+        let pages = [("overview", "概览"), ("blocks", "规则"), ("schedule", "日程"), ("statistics", "统计"), ("settings", "设置")]
         for (index, page) in pages.enumerated() {
             let item = view.addItem(withTitle: page.1, action: #selector(Delegate.selectPage(_:)), keyEquivalent: String(index+1))
             item.representedObject = page.0; item.target = delegate

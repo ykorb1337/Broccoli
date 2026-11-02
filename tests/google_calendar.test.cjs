@@ -1,8 +1,8 @@
 'use strict';
 const assert=require('assert/strict'),fs=require('fs'),vm=require('vm');
-const c=vm.createContext({Intl,Date});vm.runInContext(fs.readFileSync('web/google-calendar-data.js','utf8'),c);const D=c.HotTurkeyGoogleData;
+const c=vm.createContext({Intl,Date,URL});vm.runInContext(fs.readFileSync('web/google-calendar-data.js','utf8'),c);const D=c.HotTurkeyGoogleData;
 const base=new Date(2026,10,1,12),r=D.range(base,'week');assert.equal(D.dayKey(r.start),'2026-10-26');assert.equal(D.dayKey(r.end),'2026-11-02');
-assert.equal(D.range(base,'month').days,42);assert.equal(D.dayKey(D.move(new Date(2026,0,31),'month',1)),'2026-02-01');
+assert.equal(D.range(base,'agenda').days,7);assert.equal(D.dayKey(D.range(base,'agenda').start),'2026-10-26');assert.equal(D.dayKey(D.move(base,'agenda',1)),'2026-11-08');assert.equal(D.range(base,'month').days,42);assert.equal(D.dayKey(D.move(new Date(2026,0,31),'month',1)),'2026-02-01');
 const event={id:'night',start:{dateTime:'2026-11-01T23:00:00-05:00'},end:{dateTime:'2026-11-02T01:00:00-05:00'}};
 // Use local components to make these checks independent of the test machine's zone.
 event.start.dateTime=new Date(2026,10,1,23).toISOString();event.end.dateTime=new Date(2026,10,2,1).toISOString();
@@ -12,4 +12,16 @@ const all={start:{date:'2026-11-01'},end:{date:'2026-11-02'}};assert(D.onDay(all
 const item={calendar:{accessRole:'reader'},event};assert(!D.editable(item));item.calendar.accessRole='owner';assert(D.editable(item));item.event={...event,eventType:'birthday'};assert(!D.editable(item));item.calendar.accessRole='writerWithoutPrivateAccess';item.event={...event,visibility:'private'};assert(!D.editable(item));
 assert.equal(D.input({dateTime:'2026-11-01T14:00:00Z'},'America/New_York'),'2026-11-01T09:00');
 assert.equal((D.range(base,'day').end-D.range(base,'day').start)/3600000,24+(D.addDays(new Date(2026,10,1),1).getTimezoneOffset()-new Date(2026,10,1).getTimezoneOffset())/60);
-console.log('9 Google calendar view, midnight, all-day, access, zone and DST scenarios passed');
+const day=new Date(2026,10,1),next=D.addDays(day,1);const timedAll={start:{dateTime:day.toISOString()},end:{dateTime:next.toISOString()}};
+const before=JSON.stringify(timedAll);assert(D.banner(timedAll));assert.equal(D.segments([{event:timedAll},{event}],day).length,1);assert.equal(JSON.stringify(timedAll),before);
+assert(!D.banner({start:{dateTime:new Date(2026,10,1,23).toISOString()},end:{dateTime:new Date(2026,10,2,1).toISOString()}}));
+const make=(a,b)=>({event:{start:{dateTime:new Date(2026,10,1,0,a).toISOString()},end:{dateTime:new Date(2026,10,1,0,b).toISOString()}}});
+const lanes=D.segments([make(600,780),make(600,630),make(610,640),make(640,700)],day);assert.equal(lanes.find(x=>x.startMinute===640).span,2);
+assert.equal(D.externalURL('https://www.google.com/calendar/event?eid=fixture'),'https://www.google.com/calendar/event?eid=fixture');
+for(const link of ['https://www.google.com/url?q=x','https://www.google.com/calendar/../url','http://calendar.google.com/','https://calendar.google.com.evil.test/','https://user:secret@calendar.google.com/'])assert.throws(()=>D.externalURL(link));
+for(const [summary,color] of [['DDL · HW6','#d50000'],['Lecture · Theory','#4285f4'],['Lab · DVC','#0b8043'],['Campus · Registration','#009688'],['Programming Test 2','#8e24aa'],['Offer Evaluation and Negotiation','#f09300'],['Release · HW7','#f6bf26'],['OH: Juan','#039be5'],['Entertainment · Movie','#7986cb'],['Miscellaneous','#616161']])assert.equal(D.eventAppearance({calendar:{primary:true},event:{summary}}).color,color);
+assert.equal(D.eventAppearance({calendar:{primary:true,labels:[{id:'one',name:'Custom',backgroundColor:'#112233'}]},event:{summary:'DDL',eventLabelId:'one',colorId:'11'}},{11:{background:'#ff0000'}}).color,'#112233');
+assert.equal(D.eventAppearance({calendar:{primary:true},event:{summary:'Lecture',colorId:'3'}},{3:{background:'#aa00ff'}}).color,'#aa00ff');
+assert.equal(D.eventAppearance({calendar:{backgroundColor:'#008844'},event:{summary:'Holiday',start:{date:'2026-11-01'},end:{date:'2026-11-02'}}}).color,'#008844');
+assert.equal(D.monthCapacity(108),2);assert.equal(D.monthCapacity(138),3);assert.equal(D.monthCapacity(180),5);
+console.log('30 Google calendar view, midnight, all-day, access, zone and DST scenarios passed');

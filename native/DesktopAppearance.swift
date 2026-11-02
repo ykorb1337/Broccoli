@@ -80,7 +80,7 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
     func update(_ value: [String: Any]) {
         guard let page = value["page"] as? String, FocusSidebar.pages.contains(page),
               let dark = value["dark"] as? Bool else { return }
-        let titles = ["overview":"概览", "blocks":"拦截规则", "schedule":"每周日程", "statistics":"使用统计", "settings":"设置"]
+        let titles = ["overview":"概览", "blocks":"规则", "schedule":"日程", "statistics":"统计", "settings":"设置"]
         window?.title = titles[page] ?? "HotTurkey"
         currentPage = page
         canManage = value["canManage"] as? Bool == true
@@ -180,7 +180,7 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
 
 final class FocusSidebar: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     static let pages = ["overview", "blocks", "schedule", "statistics", "settings"]
-    private let titles = ["概览", "拦截规则", "每周日程", "使用统计", "设置"]
+    private let titles = ["概览", "规则", "日程", "统计", "设置"]
     private let symbols = ["square.grid.2x2", "shield.lefthalf.filled", "calendar", "chart.bar.xaxis", "gearshape"]
     let table = NSTableView()
     let connection = NSTextField(labelWithString: "正在连接后台…")
