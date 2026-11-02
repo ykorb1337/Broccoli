@@ -21,6 +21,7 @@ class PackageTests(unittest.TestCase):
         (source/'build').mkdir()
         for name in package.HELPERS:(source/'build'/name).write_text(name);(source/'build'/name).chmod(0o755)
         (source/'build/HotTurkeyAgent').write_text('legacy helper')
+        (source/'build/HotTurkeyTracker').write_text('tracking helper')
         (self.app/'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'local.hotturkey.desktop','CFBundleShortVersionString':'0.3.0'}))
         self.destination=self.root/'payload';self.bindings={'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}}
         self.patches=[patch.object(package,'verify_signature'),patch.object(package,'native_requirement',side_effect=self.requirement),patch.object(package.subprocess,'run')]
@@ -78,6 +79,10 @@ class PackageTests(unittest.TestCase):
         self.assertFalse(self.destination.exists());self.assertTrue(self.app.is_dir())
     def test_production_app_with_qa_helper_is_rejected(self):
         (self.app/'Contents/Resources/project/build/HotTurkeySystemAgentQA').write_text('QA')
+        with self.assertRaises(ValueError):self.prepare()
+        self.assertFalse(self.destination.exists())
+    def test_production_app_missing_tracking_helper_is_rejected(self):
+        (self.app/'Contents/Resources/project/build/HotTurkeyTracker').unlink()
         with self.assertRaises(ValueError):self.prepare()
         self.assertFalse(self.destination.exists())
     def test_internal_file_symlink_allowed_escaping_directory_special_links_denied(self):

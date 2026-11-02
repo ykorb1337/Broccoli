@@ -17,6 +17,7 @@ from .ipc import decode_json
 from .session_launch import INSTALL,session_launch_agent
 
 HELPERS=('HotTurkeyPeerCheck','HotTurkeyPolicyClient','HotTurkeySystemAgent','HotTurkeySessionAgent','HotTurkeyBrowserHost')
+APP_HELPERS=frozenset(HELPERS)|{'HotTurkeyAgent','HotTurkeyTracker'}
 ROLES={'client':'HotTurkeyPolicyClient','session':'HotTurkeySessionAgent','browser':'HotTurkeyBrowserHost'}
 LABEL='local.hotturkey.authority'
 DATA=Path('/private/var/db/local.hotturkey')
@@ -126,7 +127,7 @@ def prepare_payload(app,destination,controller_uid,bindings):
     if info.get('CFBundleIdentifier')!='local.hotturkey.desktop' or 'HotTurkeyDataDirectory' in info:raise ValueError('需要正式构建的 Broccoli.app')
     resources=app/'Contents/Resources'
     if (resources/'python-path.txt').read_text().strip()!='python/bin/python3':raise ValueError('系统安装必须使用应用内独立运行时')
-    if {path.name for path in (resources/'project/build').iterdir()}!=set(HELPERS)|{'HotTurkeyAgent'}:raise ValueError('正式应用包含测试助手或未知执行文件')
+    if {path.name for path in (resources/'project/build').iterdir()}!=APP_HELPERS:raise ValueError('正式应用包含测试助手或未知执行文件')
     inventory(app);verify_signature(app)
     if destination.exists() or destination.is_symlink():raise FileExistsError('安装包目标已存在')
     destination.mkdir(mode=0o700)
@@ -171,7 +172,7 @@ def verify_payload(directory):
     if (metadata.get('CFBundleIdentifier')!='local.hotturkey.desktop' or metadata.get('HotTurkeySystemMode') is not True
             or 'HotTurkeyDataDirectory' in metadata or metadata.get('CFBundleShortVersionString')!=value['app_version']):raise ValueError('系统应用元数据无效')
     canonical=app/'Contents/Resources/project'
-    if {path.name for path in (canonical/'build').iterdir()}!=set(HELPERS)|{'HotTurkeyAgent'}:raise ValueError('正式应用包含测试助手或未知执行文件')
+    if {path.name for path in (canonical/'build').iterdir()}!=APP_HELPERS:raise ValueError('正式应用包含测试助手或未知执行文件')
     if inventory(directory/'project/hotturkey')!=inventory(canonical/'hotturkey'):raise ValueError('策略源文件与签名应用不一致')
     if {path.name for path in (directory/'project').iterdir()}!={'hotturkey'}:raise ValueError('策略目录包含额外代码')
     if (directory/'authority-entry.py').read_text()!=authority_entry():raise ValueError('系统启动入口不是固定程序')
