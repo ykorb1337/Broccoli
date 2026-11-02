@@ -353,7 +353,7 @@ class ProtectedDriver(_Driver):
 def _run_worker(layout,context,lock_fd,lease_fds):
     if type(lock_fd) is not int:raise RuntimeError('暂存工作进程缺少内核安装锁')
     code='import sys;sys.path.insert(0,'+repr(str(layout.artifact/'project'))+');from hotturkey.system_driver import _worker_main;_worker_main('+repr(layout.folder.name)+')'
-    process=subprocess.Popen([str(layout.artifact/'HotTurkey.app/Contents/Resources/python/bin/python3'),'-I','-B','-c',code],
+    process=subprocess.Popen([str(layout.artifact/'Broccoli.app/Contents/Resources/python/bin/python3'),'-I','-B','-c',code],
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=(lock_fd,*lease_fds),close_fds=True,cwd='/',env={'PATH':'/usr/bin:/bin'})
     try:
         output,_=process.communicate(json.dumps({'context':context,'lock_fd':lock_fd,'lease_fds':lease_fds}).encode(),timeout=45)

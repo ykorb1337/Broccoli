@@ -44,7 +44,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
     }()
     func applicationDidFinishLaunching(_ notification: Notification) {
         let resources = Bundle.main.resourceURL!
-        if let url=Bundle.main.url(forResource:"HotTurkey",withExtension:"icns"),let icon=NSImage(contentsOf:url),icon.isValid {
+        if let url=Bundle.main.url(forResource:"Broccoli",withExtension:"icns"),let icon=NSImage(contentsOf:url),icon.isValid {
             NSApp.applicationIconImage=icon
             desktopIconLoaded=true
         }
@@ -60,12 +60,12 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         if desktopIconLoaded { desktopLog("application icon loaded") }
         appearance.sheetChanged = { [weak self] shown in self?.desktopLog(shown ? "editor sheet presented" : "editor sheet dismissed") }
         let menu = NSMenu()
-        menu.addItem(withTitle:"打开 HotTurkey",action:#selector(show),keyEquivalent:"")
+        menu.addItem(withTitle:"打开 Broccoli",action:#selector(show),keyEquivalent:"")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle:"关闭窗口（后台继续）",action:#selector(hide),keyEquivalent:"")
         menu.addItem(withTitle:"退出界面（后台继续）",action:#selector(quit),keyEquivalent:"")
         status = NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength)
-        status.button?.image = NSImage(systemSymbolName:"flame.fill",accessibilityDescription:"HotTurkey")
+        status.button?.image = NSImage(systemSymbolName:"leaf.fill",accessibilityDescription:"Broccoli")
         status.menu = menu
         let config = WKWebViewConfiguration()
 #if QA_SHEET
@@ -78,7 +78,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         web.uiDelegate = self
         window = NSWindow(contentRect:NSRect(x:0,y:0,width:1590,height:1100),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         window.minSize = NSSize(width:920,height:650)
-        window.title = "HotTurkey"
+        window.title = "Broccoli"
         window.contentView = web
         fileDialogs = DesktopFiles(parent: { [weak self] in self?.filePresentationWindow },
                                    event: { [weak self] in self?.desktopLog($0) })
@@ -96,7 +96,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         window.isReleasedWhenClosed = false
         UNUserNotificationCenter.current().delegate = self
         notices = DistributedNotificationCenter.default().addObserver(forName:NSNotification.Name("local.hotturkey.notice"),object:nil,queue:.main) { note in
-            let content = UNMutableNotificationContent(); content.title = "HotTurkey"; content.body = note.object as? String ?? ""
+            let content = UNMutableNotificationContent(); content.title = "Broccoli"; content.body = note.object as? String ?? ""
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier:UUID().uuidString,content:content,trigger:nil))
         }
         sleepNotices = DistributedNotificationCenter.default().addObserver(forName:NSNotification.Name("local.hotturkey.sleep-notice"),object:nil,queue:.main) { note in
@@ -155,7 +155,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             let process = Process()
             let configPath = Bundle.main.resourceURL!.appendingPathComponent("python-path.txt")
             let python = ((try? String(contentsOf:configPath,encoding:.utf8)) ?? "").trimmingCharacters(in:.whitespacesAndNewlines)
-            if python.isEmpty { showError("应用运行时配置缺失，请重新安装 HotTurkey。"); return }
+            if python.isEmpty { showError("应用运行时配置缺失，请重新安装 Broccoli。"); return }
             process.executableURL = python.hasPrefix("/") ? URL(fileURLWithPath:python) : Bundle.main.resourceURL!.appendingPathComponent(python)
             process.currentDirectoryURL = base
             process.arguments = ["-E","-s","-B","-m","hotturkey.server"] + (systemMode ? ["--system"] : ["--enforce"])
@@ -198,7 +198,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         navigationRecoveries += 1
         desktopLog("recovering \(reason) attempt \(navigationRecoveries)")
         if navigationRecoveries > 3 {
-            loadingLabel.stringValue = "界面连接失败，请从菜单栏重新打开 HotTurkey。"
+            loadingLabel.stringValue = "界面连接失败，请从菜单栏重新打开 Broccoli。"
             loadingLabel.isHidden = false
             return
         }
@@ -391,7 +391,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
                   let port = connection["port"] as? Int,
                   message.frameInfo.securityOrigin.port == port else { return }
             if Bundle.main.object(forInfoDictionaryKey:"HotTurkeyDataDirectory") != nil {
-                web.evaluateJavaScript("window.receiveInstallationResult({ok:false,message:'测试版不安装正式后台，请使用 HotTurkey 正式应用。'})")
+                web.evaluateJavaScript("window.receiveInstallationResult({ok:false,message:'测试版不安装正式后台，请使用 Broccoli 正式应用。'})")
                 return
             }
             installBackend(body["extensionIDs"] as? [String] ?? [])

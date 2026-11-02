@@ -4,12 +4,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
-from hotturkey.website_icons import WebsiteIcons,hostname
+from hotturkey.website_icons import WebsiteIcons,hostname,bundled_icon
 from hotturkey.model import PolicyError
 
 PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
 
 class WebsiteIconTests(unittest.TestCase):
+    def test_bundled_public_icons_match_only_their_own_domain(self):
+        for host in ['docs.python.org','python.org','developer.apple.com','web.dev']:
+            self.assertTrue(WebsiteIcons([]).resolve([host])['items'][0]['image'],host)
+        for host in ['evilpython.org','python.org.evil','localhost','../python.org']:
+            self.assertIsNone(bundled_icon(host))
+
     def test_only_web_hosts(self):
         self.assertEqual(hostname('https://CHATGPT.com/c/one'),'chatgpt.com')
         self.assertEqual(hostname('www.bilibili.com'),'www.bilibili.com')

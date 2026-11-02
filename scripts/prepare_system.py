@@ -19,7 +19,7 @@ from hotturkey.installation_gate import MARKER
 
 def main():
     parser=argparse.ArgumentParser(description='只准备可审查的系统安装材料，不写入系统目录或加载服务')
-    parser.add_argument('--app-source',type=Path,default=ROOT/'build/HotTurkey.app')
+    parser.add_argument('--app-source',type=Path,default=ROOT/'build/Broccoli.app')
     parser.add_argument('--output',type=Path,default=ROOT/'build/protected-payload')
     parser.add_argument('--browser-config',type=Path,help='JSON：浏览器名 → {app: 应用路径, origins: 扩展来源列表}')
     parser.add_argument('--controller-uid',type=int,default=os.getuid())

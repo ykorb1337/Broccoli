@@ -81,7 +81,7 @@ final class DesktopAppearance: NSObject, NSToolbarDelegate, NSMenuItemValidation
         guard let page = value["page"] as? String, FocusSidebar.pages.contains(page),
               let dark = value["dark"] as? Bool else { return }
         let titles = ["overview":"概览", "blocks":"规则", "schedule":"日程", "statistics":"统计", "settings":"设置"]
-        window?.title = titles[page] ?? "HotTurkey"
+        window?.title = titles[page] ?? "Broccoli"
         currentPage = page
         canManage = value["canManage"] as? Bool == true
         if let scale = value["textScale"] as? Int, (50...200).contains(scale) { textScale = scale }
@@ -200,7 +200,7 @@ final class FocusSidebar: NSViewController, NSTableViewDataSource, NSTableViewDe
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.widthAnchor.constraint(equalToConstant: 30).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        let name = NSTextField(labelWithString: "HotTurkey"); name.font = .systemFont(ofSize: 16, weight: .semibold)
+        let name = NSTextField(labelWithString: "Broccoli"); name.font = .systemFont(ofSize: 16, weight: .semibold)
         let brand = NSStackView(views: [icon, name]); brand.spacing = 9
         connection.font = .systemFont(ofSize: 12); connection.textColor = .secondaryLabelColor
         connection.lineBreakMode = .byTruncatingTail

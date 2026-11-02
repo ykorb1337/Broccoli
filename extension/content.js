@@ -12,7 +12,7 @@ async function run(){if(checking)return;checking=true;try{const list=channels();
   // YouTube channel exceptions need channel metadata before a final decision.
   const needsChannel=result.pending_channel;
   if(needsChannel&&channelWait++<10){setTimeout(run,500);return;}
-  if(window.top===window){const url=api.runtime.getURL('blocked.html')+'#'+encodeURIComponent(JSON.stringify({url:location.href,blocks:result.blocks.map(b=>({id:b.id,name:b.name})),offline:result.offline}));location.replace(url);}else{document.documentElement.textContent='此嵌入内容已被 HotTurkey 拦截。';reveal();}
+  if(window.top===window){const url=api.runtime.getURL('blocked.html')+'#'+encodeURIComponent(JSON.stringify({url:location.href,blocks:result.blocks.map(b=>({id:b.id,name:b.name})),offline:result.offline}));location.replace(url);}else{document.documentElement.textContent='此嵌入内容已被 Broccoli 拦截。';reveal();}
 }else{reveal();initial=false;}}catch{reveal();}finally{checking=false;}}
 api.runtime.onMessage.addListener(message=>{if(message.op==='recheck')run();});
 document.addEventListener('yt-navigate-finish',()=>{channelWait=0;run();});

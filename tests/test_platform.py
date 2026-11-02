@@ -86,7 +86,7 @@ class NativeTransportTests(unittest.TestCase):
 class LoginTests(unittest.TestCase):
     def test_ui_login_is_separate_from_service_and_has_stable_path(self):
         with tempfile.TemporaryDirectory() as temp:
-            home=Path(temp);app=home/'Applications/HotTurkey.app';app.mkdir(parents=True)
+            home=Path(temp);app=home/'Applications/Broccoli.app';app.mkdir(parents=True)
             directory=home/'data';directory.mkdir();(directory/'installation.json').write_text(json.dumps({'app_path':str(app)}))
             with patch('hotturkey.platform_macos.Path.home',return_value=home),patch('hotturkey.platform_macos.subprocess.run') as run:
                 configure_ui_login(True,directory)

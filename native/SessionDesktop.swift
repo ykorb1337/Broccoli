@@ -27,7 +27,7 @@ final class SessionDesktop {
 }
 
 func launchSystemDesktop()->Bool {
-    return launchDesktop(at:URL(fileURLWithPath:"/Library/PrivilegedHelperTools/local.hotturkey/HotTurkey.app"),owner:0,checkAncestors:true)
+    return launchDesktop(at:URL(fileURLWithPath:"/Library/PrivilegedHelperTools/local.hotturkey/Broccoli.app"),owner:0,checkAncestors:true)
 }
 
 func launchDesktop(at app:URL,owner:uid_t,checkAncestors:Bool)->Bool {

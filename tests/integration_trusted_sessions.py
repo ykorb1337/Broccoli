@@ -31,7 +31,7 @@ def main():
     proof={}
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-session-') as temporary:
         store=Store(Path(temporary)/'data');store.state['settings']['statistics']=False
-        missing_system_app=not Path('/Library/PrivilegedHelperTools/local.hotturkey/HotTurkey.app').exists()
+        missing_system_app=not Path('/Library/PrivilegedHelperTools/local.hotturkey/Broccoli.app').exists()
         # Exercise actual ticket/receipt transport without ever opening an
         # installed app. A headless runner honestly records no console login.
         store.state['settings']['open_at_login']=missing_system_app

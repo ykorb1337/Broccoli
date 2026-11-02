@@ -4,6 +4,7 @@ import os
 import tempfile
 import threading
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from hotturkey.engine import Engine
@@ -34,7 +35,10 @@ class RecoveryDeliveryTests(unittest.TestCase):
                         if word is not None:sample['recovery_word']=word
                         yield sample
                     service.stop.set()
-                with patch('hotturkey.platform_macos.subprocess.Popen',return_value=object()),patch('hotturkey.platform_macos.native_samples',side_effect=lambda *args:samples()),patch('hotturkey.platform_macos.native_command',side_effect=lambda p,s,c:commands.append(c) or True),patch('hotturkey.platform_macos.stop_native'):
+                # The transport is mocked. Do not depend on a previous native build.
+                root=Path(directory)/'project';(root/'build').mkdir(parents=True)
+                (root/'build/HotTurkeyAgent').touch()
+                with patch('hotturkey.platform_macos.ROOT',root),patch('hotturkey.platform_macos.subprocess.Popen',return_value=object()),patch('hotturkey.platform_macos.native_samples',side_effect=lambda *args:samples()),patch('hotturkey.platform_macos.native_command',side_effect=lambda p,s,c:commands.append(c) or True),patch('hotturkey.platform_macos.stop_native'):
                     enforce_loop(service)
                 self.assertEqual(store.state['blocks'],before,'readiness cannot edit locks or rules')
                 return commands,service.device_recovery_protocol

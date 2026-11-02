@@ -1,6 +1,6 @@
 # Security
 
-HotTurkey currently runs a **per-user** background service. The same macOS user
+Broccoli currently runs a **per-user** background service. The same macOS user
 can stop it or edit its files. It is not yet a tamper-resistant system service.
 The protected policy RPC work is an uninstalled foundation, not a security
 boundary used by the released application. See [docs/SYSTEM-SERVICE.md](docs/SYSTEM-SERVICE.md).

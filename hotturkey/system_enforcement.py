@@ -4,6 +4,7 @@ The current-user installer does not enable this service. Fresh inventory can
 verify native session/browser identities. Protected browser deployment, device
 actions and privileged installation remain separate work.
 """
+from .setup_policy import INSTALLER_BUNDLES
 import os
 import re
 import subprocess
@@ -123,7 +124,7 @@ class SystemDecisions:
                 if locked:
                     strict=((settings['block_task_manager'] and bundle=='com.apple.ActivityMonitor')
                             or (settings['block_settings'] and bundle in {'com.apple.systempreferences','com.apple.ScreenTime'})
-                            or (settings['block_installer'] and bundle=='com.apple.installer')
+                            or (settings['block_installer'] and bundle in INSTALLER_BUNDLES)
                             or (settings['block_unsupported'] and bundle in UNSUPPORTED))
                     if bundle in BROWSERS and settings['require_extension']:
                         since=max(engine.start_time,engine.heartbeats.get(BROWSERS[bundle],{}).get('at',0),app.get('start_sec',0))

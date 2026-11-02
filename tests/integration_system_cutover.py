@@ -159,7 +159,7 @@ def main():
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-cutover-') as temporary:
         root=Path(temporary);source=root/'fixture.c';source.write_text('#include <unistd.h>\nint main(void){sleep(180);return 0;}\n')
         executable=root/'owned-cutover-fixture';subprocess.run(['/usr/bin/clang',str(source),'-o',str(executable)],check=True,capture_output=True)
-        template=root/'payload';prepare_payload(ROOT/'build/HotTurkey.app',template,os.getuid(),{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}})
+        template=root/'payload';prepare_payload(ROOT/'build/Broccoli.app',template,os.getuid(),{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}})
         for mode in ['success','before-commit','after-commit']:
             case=root/mode;case.mkdir(mode=0o700);driver=Driver(case,template,executable)
             try:

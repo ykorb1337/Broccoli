@@ -70,7 +70,7 @@ class InstallTests(unittest.TestCase):
         for folder in ['hotturkey','web','extension']:(self.project/folder).mkdir();(self.project/folder/'new.txt').write_text(folder)
         (self.project/'build/HotTurkeyAgent').write_text('fixture agent')
         self.source=self.app(self.root/'Source.app','new')
-        self.target=self.root/'profile/data';self.app_target=self.root/'apps/HotTurkey.app';self.launch=self.root/'profile/launch/service.plist'
+        self.target=self.root/'profile/data';self.app_target=self.root/'apps/Broccoli.app';self.launch=self.root/'profile/launch/service.plist'
         self.browser=[self.root/'profile/Chrome/NativeMessagingHosts/local.hotturkey.bridge.json']
 
     def tearDown(self):self.temp.cleanup()
@@ -83,7 +83,7 @@ class InstallTests(unittest.TestCase):
         return path
 
     def install(self,prepare_only=True,source=None):
-        with patch.object(installer,'ROOT',self.project),patch.object(installer,'manual_server',return_value=None),patch.object(installer,'restart_old_hosts',return_value=0):
+        with patch.object(installer,'stop_desktops'),patch.object(installer,'ROOT',self.project),patch.object(installer,'manual_server',return_value=None),patch.object(installer,'restart_old_hosts',return_value=0):
             return installer.install(source or self.source,self.target,self.app_target,self.launch,self.browser,{'b'*32},prepare_only)
 
     def test_prepare_uses_installed_runtime_and_preserves_registration_and_policy(self):

@@ -216,7 +216,7 @@ async function setup(){
  const desktop=!!window.webkit?.messageHandlers?.native;
  openModal('连接浏览器与后台',`<div class="hint">${state.enforcement.enabled?'本地拦截已启用。':'请在 macOS 桌面应用中安装后台。'} ${state.enforcement.desktop_connected?'桌面执行器在线。':''}</div>
  <div class="setup-list"><div><b>1 · 安装当前用户后台</b><p>应用已包含所需运行时。安装后会登录自动启动，并保留现有规则和浏览器连接。首次安装时扩展 ID 可以留空，完成下面两步后再填入并更新一次。</p>
- ${desktop?`${field('浏览器扩展 ID（已有连接可留空；多个 ID 用空格分隔）','<input id="install-extension-ids" placeholder="32 位扩展 ID" autocomplete="off">')}${btn('install-backend','安装 / 更新当前用户后台','','primary')}`:'<p>请打开 HotTurkey 桌面应用，点击本页的安装按钮。</p>'}</div>
+ ${desktop?`${field('浏览器扩展 ID（已有连接可留空；多个 ID 用空格分隔）','<input id="install-extension-ids" placeholder="32 位扩展 ID" autocomplete="off">')}${btn('install-backend','安装 / 更新当前用户后台','','primary')}`:'<p>请打开 Broccoli 桌面应用，点击本页的安装按钮。</p>'}</div>
  <div><b>2 · 在浏览器中加载扩展</b><p>安装后台后，在 Edge、Chrome 或 Brave 的扩展管理页开启开发者模式，选择“加载解压缩的扩展”，再选取下面的文件夹。</p>
  ${field('扩展文件夹',`<input readonly value="${esc(state.enforcement.extension_path||'请先安装后台')}" aria-label="扩展文件夹">`)}
  <p>复制浏览器显示的扩展 ID，填入上方，再点击“安装 / 更新当前用户后台”。</p></div>
@@ -302,7 +302,7 @@ async function action(a,el){if(!allowedAction(a))throw Error('此账户可查看
  if(a==='export')return download('hotturkey-blocks.json',await api('export'));
  if(a==='import'){
   const text=await readFile('.json');if(!text)return;
-  const value=JSON.parse(text);if(!Array.isArray(value.blocks)||value.blocks.length>200||value.blocks.some(b=>!b||typeof b!=='object'||Array.isArray(b)))throw Error('请选择包含规则列表的 HotTurkey 导出文件（最多 200 条）');
+  const value=JSON.parse(text);if(!Array.isArray(value.blocks)||value.blocks.length>200||value.blocks.some(b=>!b||typeof b!=='object'||Array.isArray(b)))throw Error('请选择包含规则列表的 Broccoli 导出文件（最多 200 条）');
   importDraft=prepareRuleImport(value.blocks);
   renderRuleImport();return;
  }

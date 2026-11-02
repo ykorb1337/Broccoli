@@ -1,4 +1,5 @@
 """Read processes and invoke a compiled AppKit helper; never shell-interpolate rules."""
+from .setup_policy import INSTALLER_BUNDLES
 import json
 import logging
 import os
@@ -168,7 +169,7 @@ def enforce_loop(service):
                     strict=False
                     bundle=app.get("bundle","")
                     if any_locked:
-                        strict=(settings["block_task_manager"] and bundle=="com.apple.ActivityMonitor") or (settings["block_settings"] and bundle in {"com.apple.systempreferences","com.apple.ScreenTime"}) or (settings["block_installer"] and bundle=="com.apple.installer")
+                        strict=(settings["block_task_manager"] and bundle=="com.apple.ActivityMonitor") or (settings["block_settings"] and bundle in {"com.apple.systempreferences","com.apple.ScreenTime"}) or (settings["block_installer"] and bundle in INSTALLER_BUNDLES)
                         if bundle in BROWSERS:
                             browser=BROWSERS[bundle]
                             heartbeat=e.heartbeats.get(browser,{})

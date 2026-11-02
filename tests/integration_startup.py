@@ -32,10 +32,10 @@ def prepare(reuse=None):
     else:
         folder=Path(tempfile.mkdtemp(prefix='startup-ui-',dir=build))
         app=folder/'HotTurkey Startup QA.app';data=folder/'data'
-        info=plistlib.loads((build/'HotTurkey.app/Contents/Info.plist').read_bytes())
+        info=plistlib.loads((build/'Broccoli.app/Contents/Info.plist').read_bytes())
         info.update(CFBundleIdentifier='local.hotturkey.startupqa',CFBundleDisplayName='HotTurkey Startup QA')
         store=Store(data);store.state['settings']['statistics']=False;store.save();store.db.close()
-    shutil.copytree(build/'HotTurkey.app',app,symlinks=True)
+    shutil.copytree(build/'Broccoli.app',app,symlinks=True)
     info['HotTurkeyDataDirectory']=str(data)
     (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     marker=data/'startup-delay.json'

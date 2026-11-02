@@ -17,7 +17,7 @@ def main():
     proof={}
     with tempfile.TemporaryDirectory(prefix='运行时搬移 验证-',dir=ROOT/'build') as temporary:
         directory=Path(temporary);app=directory/'HotTurkey Relocated.app'
-        shutil.copytree(ROOT/'build/HotTurkey.app',app,symlinks=True)
+        shutil.copytree(ROOT/'build/Broccoli.app',app,symlinks=True)
         resources=app/'Contents/Resources';python=resources/'python/bin/python3';project=resources/'project'
         env={**os.environ,'PATH':'/nonexistent','PYTHONHOME':'/nonexistent-python','PYTHONPATH':'/nonexistent-modules','HOTTURKEY_DATA':str(directory/'data')}
         command=[str(python),'-E','-s','-B']

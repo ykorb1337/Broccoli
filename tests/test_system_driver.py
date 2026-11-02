@@ -171,7 +171,7 @@ class WorkerContractTests(unittest.TestCase):
             self.assertEqual(module._run_worker(self.layout,self.context,10,[11,12]),{})
         args,options=spawn.call_args
         self.assertEqual(args[0][1:4],['-I','-B','-c'])
-        self.assertEqual(args[0][0],str(self.layout.artifact/'HotTurkey.app/Contents/Resources/python/bin/python3'))
+        self.assertEqual(args[0][0],str(self.layout.artifact/'Broccoli.app/Contents/Resources/python/bin/python3'))
         self.assertEqual(options['pass_fds'],(10,11,12));self.assertTrue(options['close_fds'])
         self.assertEqual(options['cwd'],'/');self.assertEqual(options['env'],{'PATH':'/usr/bin:/bin'})
         request=json.loads(process.communicate.call_args.args[0]);self.assertEqual(request,{'context':self.context,'lock_fd':10,'lease_fds':[11,12]})

@@ -70,7 +70,7 @@ def normalize_permissions(directory):
 
 
 def daemon_plan():
-    return {'Label':LABEL,'ProgramArguments':[str(INSTALL/'HotTurkey.app/Contents/Resources/python/bin/python3'),
+    return {'Label':LABEL,'ProgramArguments':[str(INSTALL/'Broccoli.app/Contents/Resources/python/bin/python3'),
             '-I','-B',str(INSTALL/'authority-entry.py')],'WorkingDirectory':str(INSTALL),
             'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':5,'ExitTimeOut':15,
             'ProcessType':'Background','Umask':0o077,'StandardOutPath':'/dev/null','StandardErrorPath':'/dev/null',
@@ -123,7 +123,7 @@ def prepare_payload(app,destination,controller_uid,bindings):
     if type(controller_uid) is not int or not 500<=controller_uid<=4294967295:raise ValueError('管理账户 UID 无效')
     validate_bindings(bindings);app=Path(app);destination=Path(destination)
     info=plistlib.loads((app/'Contents/Info.plist').read_bytes())
-    if info.get('CFBundleIdentifier')!='local.hotturkey.desktop' or 'HotTurkeyDataDirectory' in info:raise ValueError('需要正式构建的 HotTurkey.app')
+    if info.get('CFBundleIdentifier')!='local.hotturkey.desktop' or 'HotTurkeyDataDirectory' in info:raise ValueError('需要正式构建的 Broccoli.app')
     resources=app/'Contents/Resources'
     if (resources/'python-path.txt').read_text().strip()!='python/bin/python3':raise ValueError('系统安装必须使用应用内独立运行时')
     if {path.name for path in (resources/'project/build').iterdir()}!=set(HELPERS)|{'HotTurkeyAgent'}:raise ValueError('正式应用包含测试助手或未知执行文件')
@@ -131,7 +131,7 @@ def prepare_payload(app,destination,controller_uid,bindings):
     if destination.exists() or destination.is_symlink():raise FileExistsError('安装包目标已存在')
     destination.mkdir(mode=0o700)
     try:
-        installed_app=destination/'HotTurkey.app';shutil.copytree(app,installed_app,symlinks=True)
+        installed_app=destination/'Broccoli.app';shutil.copytree(app,installed_app,symlinks=True)
         info['HotTurkeySystemMode']=True;(installed_app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(installed_app)],check=True,capture_output=True,timeout=60)
         verify_signature(installed_app)
@@ -164,9 +164,9 @@ def verify_payload(directory):
     if type(value['controller_uid']) is not int or not 500<=value['controller_uid']<=4294967295:raise ValueError('管理账户 UID 无效')
     if inventory(directory,ignore_manifest=True)!=value['files']:raise ValueError('安装包文件与清单不一致')
     if any(entry.get('mode') not in {0o644,0o755} for entry in value['files'].values() if entry['type']!='link'):raise ValueError('安装包权限不是标准只读配置')
-    expected=set(HELPERS)|{'HotTurkey.app','project','authority.json','browsers.json','authority-entry.py','authority.plist','session.plist','payload.json'}
+    expected=set(HELPERS)|{'Broccoli.app','project','authority.json','browsers.json','authority-entry.py','authority.plist','session.plist','payload.json'}
     if {path.name for path in directory.iterdir()}!=expected:raise ValueError('安装包包含未识别的根目录项目')
-    app=directory/'HotTurkey.app';verify_signature(app)
+    app=directory/'Broccoli.app';verify_signature(app)
     metadata=plistlib.loads((app/'Contents/Info.plist').read_bytes())
     if (metadata.get('CFBundleIdentifier')!='local.hotturkey.desktop' or metadata.get('HotTurkeySystemMode') is not True
             or 'HotTurkeyDataDirectory' in metadata or metadata.get('CFBundleShortVersionString')!=value['app_version']):raise ValueError('系统应用元数据无效')

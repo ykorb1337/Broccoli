@@ -101,7 +101,7 @@ h2 { margin:0; font-size:15px; font-weight:650; letter-spacing:-.2px; }
 h3 { margin:0; font-size:13px; font-weight:600; }
 p { margin:8px 0; }
 p:empty { display:none; }
-#content { max-width:1020px; margin:0; }
+#content { width:100%; max-width:none; margin:0; }
 .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin-bottom:26px; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
 body[data-view="overview"] .metrics { margin-top:2px; }
 .metric { min-width:0; padding:17px 20px; }
@@ -165,7 +165,7 @@ button.switch.on { background:var(--green); }
 .panel p { color:var(--muted); font-size:12px; }
 .panel>.section-head { margin-top:0; }
 .panel>.toolbar:last-child { margin:16px 0 0; }
-body[data-view="settings"] #content { max-width:760px; }
+body[data-view="settings"] #content { max-width:none; }
 .panel.settings-group { padding:0; border:0; background:transparent; margin-bottom:24px; }
 .settings-group>h2 { margin:0 12px 9px; font-size:12px; font-weight:600; color:var(--muted); }
 .settings-group-body { border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; }

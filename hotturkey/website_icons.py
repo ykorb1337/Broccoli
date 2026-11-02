@@ -16,6 +16,19 @@ from urllib.parse import urlsplit
 from .model import PolicyError
 
 LOG=logging.getLogger('hotturkey')
+BUNDLED=Path(__file__).resolve().parent.parent/'web/website-icons'
+BUILTIN_HOSTS=frozenset(['python.org','swift.org','github.com','apple.com','notion.so','arxiv.org','wikipedia.org','readthedocs.io','figma.com','mozilla.org','stackoverflow.com','web.dev'])
+
+def bundled_icon(host):
+    # Fixed public assets only. Never send browsing targets to an icon service.
+    domain=next((name for name in BUILTIN_HOSTS if host==name or host.endswith('.'+name)),None)
+    if not domain:return None
+    try:
+        raw=(BUNDLED/(domain+'.png')).read_bytes()
+        if len(raw)<=65536 and raw.startswith(b'\x89PNG\r\n\x1a\n') and all(1<=n<=256 for n in struct.unpack('>II',raw[16:24])):
+            return 'data:image/png;base64,'+base64.b64encode(raw).decode()
+    except (OSError,struct.error):pass
+    return None
 
 
 def hostname(value):
@@ -116,7 +129,7 @@ class WebsiteIcons:
                             LOG.info('Local website icon cache read deferred: %s',error);self.reported_error=True
                         continue
                 for host in missing:
-                    image=images.get(host) or self.cache.get(host,(0,None,False))[1]
+                    image=images.get(host) or self.cache.get(host,(0,None,False))[1] or bundled_icon(host)
                     self.cache[host]=(now,image,host in failed and not image)
                 for old in list(self.cache):
                     if len(self.cache)<=512:break

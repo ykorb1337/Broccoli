@@ -77,7 +77,7 @@ def main():
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-driver-crash-') as temporary:
         root=Path(temporary);source=root/'fixture.c';source.write_text('#include <unistd.h>\nint main(void){sleep(180);return 0;}\n');binary=root/'owned-fixture'
         subprocess.run(['/usr/bin/clang',str(source),'-o',str(binary)],check=True,capture_output=True)
-        template=root/'template';prepare_payload(ROOT/'build/HotTurkey.app',template,uid,{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}});expected=digest(template/'payload.json')
+        template=root/'template';prepare_payload(ROOT/'build/Broccoli.app',template,uid,{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}});expected=digest(template/'payload.json')
         for mode in ['frozen','published','committed']:
             case=root/mode;case.mkdir(mode=0o700);registry=case/'registry';folder=registry/'jobs'/('a'*32);folder.mkdir(parents=True,mode=0o700)
             layout=_Layout(folder,registry,case/'program',case/'database',registry/'activation.json',case/'daemon.plist',case/'session.plist',case/'runtime',case/'legacy',case,uid)

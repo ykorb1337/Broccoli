@@ -17,7 +17,7 @@ from hotturkey.server import Service
 from hotturkey.tracking import day_bounds
 
 
-def copy_today(source,service,day):
+def copy_today(source,service,day,*,copy_images=True):
     """One read transaction, allowlisted tables, no policy or credential copy."""
     source=Path(source).resolve();destination=service.store.directory.resolve()
     if source==destination:raise ValueError('预览目录不能是安装版数据目录')
@@ -61,7 +61,7 @@ def copy_today(source,service,day):
     tracking.close();service.tracking=None;service.tracking_recorder=None
     if not service.initialize_tracking():raise RuntimeError('无法读取复制的统计资料')
     missing_images=0
-    for relative,source_root in shot_files:
+    for relative,source_root in shot_files if copy_images else []:
         if not isinstance(relative,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}/[a-f0-9]{32}\.(jpg|png|webp)',relative):missing_images+=1;continue
         if source_root is None:missing_images+=1;continue
         image=(source_root/relative).resolve();base=source_root.resolve()
@@ -70,7 +70,7 @@ def copy_today(source,service,day):
         target=shot_root/relative;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700);shutil.copyfile(image,target);target.chmod(0o600)
         service.tracking.screenshot_path(relative)
     if service.store.state['blocks'] or service.enforce:raise RuntimeError('预览隔离检查失败')
-    result={'day':day,'copied_at':dt.datetime.now().astimezone().isoformat(),'source':'installed-local-statistics','counts':counts,'missing_screenshot_files':missing_images,'enforcement':False,'policy_rules_copied':False,'installed_data_modified':False,'snapshot':True}
+    result={'day':day,'copied_at':dt.datetime.now().astimezone().isoformat(),'source':'installed-local-statistics','counts':counts,'missing_screenshot_files':missing_images,'enforcement':False,'policy_rules_copied':False,'installed_data_modified':False,'snapshot':True,'screenshot_files_copied':copy_images}
     (destination/'preview-source.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));(destination/'preview-source.json').chmod(0o600)
     return result
 

@@ -138,11 +138,11 @@ struct BrowserHostMain {
                         if !supportsDocuments,let meta=result["__hotturkey_document__"] as? [String:Any],let token=meta["id"] as? String {
                             let cancel=try JSONSerialization.data(withJSONObject:["op":"document-cancel","data":["id":token]])
                             _ = try request(cancel,path:path,serverUID:uid)
-                            try pipeReply(["error":"规则列表较大，请重新加载 HotTurkey 扩展以更新通信协议","policy":true])
+                            try pipeReply(["error":"规则列表较大，请重新加载 Broccoli 扩展以更新通信协议","policy":true])
                         } else { try pipeReply(result) }
                     }
                     else { try pipeReply(["error":value["error"] as? String ?? "请求未通过验证","policy":true]) }
-                } catch { try pipeReply(["error":"HotTurkey 受保护后台未连接"]) }
+                } catch { try pipeReply(["error":"Broccoli 受保护后台未连接"]) }
             }
         } catch { exit(1) }
     }

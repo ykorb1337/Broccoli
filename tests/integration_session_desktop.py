@@ -16,7 +16,7 @@ def main():
     harness=ROOT/'build/HotTurkeySessionDesktopFixture';stub=ROOT/'build/HotTurkeyLoginAppFixture'
     first={'id':'a'*64};second={'id':'b'*64};proof={}
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-login-ui-') as temporary:
-        directory=Path(temporary);app=directory/'HotTurkey.app';contents=app/'Contents';binary=contents/'MacOS/HotTurkey'
+        directory=Path(temporary);app=directory/'Broccoli.app';contents=app/'Contents';binary=contents/'MacOS/HotTurkey'
         binary.parent.mkdir(parents=True);shutil.copy2(stub,binary)
         receipt=directory/'receipt.jsonl'
         info={'CFBundleIdentifier':'local.hotturkey.desktop','CFBundleExecutable':'HotTurkey','CFBundlePackageType':'APPL',

@@ -8,8 +8,8 @@ enum DesktopMenu {
             let menu = NSMenu(title: title); item.submenu = menu; main.addItem(item)
             return menu
         }
-        let application = section("HotTurkey")
-        application.addItem(withTitle: "关于 HotTurkey", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let application = section("Broccoli")
+        application.addItem(withTitle: "关于 Broccoli", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         application.addItem(.separator())
         let settings = application.addItem(withTitle: "设置…", action: #selector(Delegate.showSettings), keyEquivalent: ",")
         settings.target = delegate
@@ -17,12 +17,12 @@ enum DesktopMenu {
         let servicesItem = NSMenuItem(title: "服务", action: nil, keyEquivalent: "")
         let services = NSMenu(title: "服务"); servicesItem.submenu = services; application.addItem(servicesItem); app.servicesMenu = services
         application.addItem(.separator())
-        application.addItem(withTitle: "隐藏 HotTurkey", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        application.addItem(withTitle: "隐藏 Broccoli", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = application.addItem(withTitle: "隐藏其他", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         application.addItem(withTitle: "显示全部", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         application.addItem(.separator())
-        application.addItem(withTitle: "退出 HotTurkey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        application.addItem(withTitle: "退出 Broccoli", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = section("文件")
         file.addItem(withTitle: "新建拦截规则", action: #selector(Delegate.createRule(_:)), keyEquivalent: "n").target = delegate

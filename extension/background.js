@@ -29,7 +29,7 @@ async function requestTabUnblock(data,sender){
   if(result.granted){const current=await api.tabs.get(tab.id).catch(()=>null);if(!current||current.url!==sender.url){await forgetTabGrants(tab.id);await native('tab-close',{context,tab:tab.id});return {error:'标签页已改变，临时放行已取消'};}if(syncTask)await syncTask;await sync();if(await updateNetworkRules()===false){await forgetTabGrants(tab.id);await native('tab-close',{context,tab:tab.id});return {error:'无法更新浏览器拦截规则，临时放行已取消'};}}
   return result;
 }
-function requirePopup(sender){if(sender?.url!==api.runtime.getURL('popup.html')||(sender.frameId!==undefined&&sender.frameId!==0))throw Error('只能从 HotTurkey 扩展弹窗添加网站');}
+function requirePopup(sender){if(sender?.url!==api.runtime.getURL('popup.html')||(sender.frameId!==undefined&&sender.frameId!==0))throw Error('只能从 Broccoli 扩展弹窗添加网站');}
 async function popupPage(){
   const tab=(await api.tabs.query({active:true,lastFocusedWindow:true}))[0];
   const raw=tab?.pendingUrl||tab?.url||'',url=blockedTarget(raw)||raw;

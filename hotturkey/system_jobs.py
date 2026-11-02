@@ -36,7 +36,7 @@ def human_account(uid,resolve=pwd.getpwuid):
 
 def legacy_plan(home):
     home=Path(home);data=home/'Library/Application Support/HotTurkey'
-    return {'Label':LEGACY_LABEL,'ProgramArguments':[str(home/'Applications/HotTurkey.app/Contents/Resources/python/bin/python3'),
+    return {'Label':LEGACY_LABEL,'ProgramArguments':[str(home/'Applications/Broccoli.app/Contents/Resources/python/bin/python3'),
         '-E','-s','-B','-m','hotturkey.server','--enforce'],'WorkingDirectory':str(data/'runtime'),
         'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':3,
         'StandardOutPath':str(data/'launch.log'),'StandardErrorPath':str(data/'launch-error.log'),

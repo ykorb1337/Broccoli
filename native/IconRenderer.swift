@@ -27,7 +27,14 @@ for size in [16,19,20,32,38,40,48,64,128,256,512,1024] {
     let gradient=CGGradient(colorsSpace:space,colors:colors as CFArray,locations:[0,1])!
     context.drawLinearGradient(gradient,start:CGPoint(x:180,y:100),end:CGPoint(x:800,y:924),options:[]);context.restoreGState()
     for shape in icon["shapes"] as! [[String:Any]] {
-        context.setFillColor(color(shape["fill"] as! String))
+        context.saveGState();defer {context.restoreGState()}
+        context.setAlpha(CGFloat(shape["opacity"] as? Double ?? 1))
+        let fill=shape["fill"] as? String ?? "none"
+        if fill != "none" { context.setFillColor(color(fill)) }
+        if let stroke=shape["stroke"] as? String {
+            context.setStrokeColor(color(stroke));context.setLineWidth(CGFloat(shape["stroke_width"] as? Double ?? 1))
+            context.setLineCap(.round);context.setLineJoin(.round)
+        }
         if let circle=shape["circle"] as? [CGFloat] {
             context.fillEllipse(in:CGRect(x:circle[0]-circle[2],y:circle[1]-circle[2],width:circle[2]*2,height:circle[2]*2));continue
         }
@@ -42,7 +49,16 @@ for size in [16,19,20,32,38,40,48,64,128,256,512,1024] {
             default:path.closeSubpath()
             }
         }
-        context.addPath(path);context.fillPath()
+        context.addPath(path)
+        if fill == "none",let palette=shape["stroke_colors"] as? [String] {
+            context.saveGState();context.setShadow(offset:CGSize(width:0,height:2),blur:4,color:CGColor(gray:0,alpha:0.12));context.strokePath();context.restoreGState()
+            context.addPath(path);context.replacePathWithStrokedPath();context.clip()
+            let gradient=CGGradient(colorsSpace:space,colors:palette.map(color) as CFArray,locations:[0,1])!
+            context.drawLinearGradient(gradient,start:CGPoint(x:300,y:220),end:CGPoint(x:650,y:800),options:[.drawsBeforeStartLocation,.drawsAfterEndLocation])
+        }
+        else if fill == "none" { context.strokePath() }
+        else if shape["stroke"] != nil { context.drawPath(using:.fillStroke) }
+        else { context.fillPath() }
     }
     let destination=CGImageDestinationCreateWithURL(directory.appendingPathComponent("icon-\(size).png") as CFURL,UTType.png.identifier as CFString,1,nil)!
     CGImageDestinationAddImage(destination,context.makeImage()!,nil)

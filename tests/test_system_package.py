@@ -13,7 +13,7 @@ from hotturkey import system_package as package
 
 class PackageTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.app=self.root/'HotTurkey.app'
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.app=self.root/'Broccoli.app'
         resources=self.app/'Contents/Resources';(resources/'python/bin').mkdir(parents=True)
         (resources/'python/bin/python3.13').write_text('python');(resources/'python/bin/python3.13').chmod(0o755)
         (resources/'python/bin/python3').symlink_to('python3.13');(resources/'python-path.txt').write_text('python/bin/python3')
@@ -41,7 +41,7 @@ class PackageTests(unittest.TestCase):
         plan=plistlib.loads((self.destination/'authority.plist').read_bytes())
         self.assertIn('-I',plan['ProgramArguments']);self.assertIn('-B',plan['ProgramArguments'])
         self.assertEqual(plan['EnvironmentVariables']['HOME'],'/var/root')
-        metadata=plistlib.loads((self.destination/'HotTurkey.app/Contents/Info.plist').read_bytes());self.assertTrue(metadata['HotTurkeySystemMode'])
+        metadata=plistlib.loads((self.destination/'Broccoli.app/Contents/Info.plist').read_bytes());self.assertTrue(metadata['HotTurkeySystemMode'])
         self.assertNotIn('HotTurkeySystemMode',plistlib.loads((self.app/'Contents/Info.plist').read_bytes()))
         for call in package.subprocess.run.call_args_list:self.assertNotIn('/bin/launchctl',call.args[0])
     def test_tampering_extra_file_mode_and_injected_startup_are_rejected(self):

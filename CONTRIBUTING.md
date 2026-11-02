@@ -1,7 +1,7 @@
 # Contributing
 
-HotTurkey is an independent, open-source macOS focus blocker inspired by Cold
-Turkey's public feature set. The feature coverage table in
+Broccoli is an independent, open-source macOS app for focus, time tracking
+and calendar planning. The feature coverage table in
 [docs/PARITY.md](docs/PARITY.md) records both implemented behavior and open gaps.
 
 For a change, describe the user-visible behavior, keep it scoped, and include

@@ -11,7 +11,7 @@ permissions:
 jobs:
   checks:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
@@ -19,21 +19,9 @@ jobs:
       - name: Python rules, services and IPC
         run: python3 -m unittest discover -s tests -v
       - name: Browser policies and navigation races
-        run: |
-          node tests/extension.test.cjs
-          node tests/browser_pages.test.cjs
-          node tests/tab_exceptions.test.cjs
-          node tests/quick_add.test.cjs
-          node tests/text_size.test.cjs
-          node tests/modal_keyboard.test.cjs
-          node tests/document_transfers.test.cjs
-          node tests/import_preview.test.cjs
-          node tests/system_desktop.test.cjs
-          node tests/device_safety.test.cjs
-          node --check web/app.js
-          node --check web/appearance.js
+        run: python3 scripts/check_frontend.py
       - name: Native build with verified bundled runtime
-        run: python3 scripts/build.py --qa
+        run: python3 scripts/build.py --qa --distribution
       - name: Real signed peers and policy RPC
         run: |
           python3 tests/integration_peer.py
@@ -47,6 +35,7 @@ jobs:
           python3 tests/integration_protected_driver.py
           python3 tests/integration_driver_crash.py
           python3 tests/integration_runtime.py
+          python3 tests/integration_uninstaller.py
           python3 tests/integration_authority.py
           python3 tests/integration_system_enforcement.py
           python3 tests/integration_device_gate.py

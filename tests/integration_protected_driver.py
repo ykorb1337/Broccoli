@@ -33,7 +33,7 @@ class Jobs:
     def __init__(self,layout,configuration,binary):
         self.layout=layout;self.uid=os.getuid();self.domain='gui/'+str(self.uid);self.fixture=None;self.binary=binary
         self.directory=layout.folder/'fixture-jobs';self.directory.mkdir(mode=0o700,exist_ok=True)
-        python=ROOT/'build/HotTurkey.app/Contents/Resources/python/bin/python3';entry=ROOT/'tests/driver_authority_fixture.py'
+        python=ROOT/'build/Broccoli.app/Contents/Resources/python/bin/python3';entry=ROOT/'tests/driver_authority_fixture.py'
         self.jobs={};self.plans={}
         for name in ['legacy','authority','session']:
             path=self.directory/(name+'.plist')
@@ -105,7 +105,7 @@ def main():
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-protected-driver-') as temporary:
         root=Path(temporary);source=root/'fixture.c';source.write_text('#include <unistd.h>\nint main(void){sleep(180);return 0;}\n');binary=root/'owned-fixture'
         subprocess.run(['/usr/bin/clang',str(source),'-o',str(binary)],check=True,capture_output=True)
-        template=root/'template';prepare_payload(ROOT/'build/HotTurkey.app',template,uid,{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}})
+        template=root/'template';prepare_payload(ROOT/'build/Broccoli.app',template,uid,{'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}})
         expected=digest(template/'payload.json')
         for mode in ['success','before-commit','after-commit']:
             case=root/mode;case.mkdir(mode=0o700);registry=case/'registry';folder=registry/'jobs'/uuid.uuid4().hex;folder.mkdir(mode=0o700,parents=True)

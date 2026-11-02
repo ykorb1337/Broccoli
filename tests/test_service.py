@@ -245,7 +245,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.service.engine.find(block['id'])['websites'],['edge://settings'])
     def test_connection_private(self):self.assertEqual((Path(self.temp.name)/'connection.json').stat().st_mode&0o777,0o600)
     def test_static_resources_and_csp(self):
-        with urllib.request.urlopen(self.service.origin+'/') as response:self.assertIn("script-src 'self'",response.headers['Content-Security-Policy']);self.assertIn(b'HotTurkey',response.read())
+        with urllib.request.urlopen(self.service.origin+'/') as response:self.assertIn("script-src 'self'",response.headers['Content-Security-Policy']);self.assertIn(b'Broccoli',response.read())
         self.assertEqual(self.request('/hotturkey/store.py')[0],404)
 
 if __name__=='__main__':unittest.main()

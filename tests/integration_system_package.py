@@ -18,9 +18,9 @@ def main():
     with tempfile.TemporaryDirectory(dir='/private/tmp',prefix='ht-system-package-') as temporary:
         root=Path(temporary);payload=root/'payload'
         bindings={'Edge':{'requirement':'identifier "com.microsoft.edgemac"','origins':['chrome-extension://'+'a'*32+'/']}}
-        value=prepare_payload(ROOT/'build/HotTurkey.app',payload,os.getuid(),bindings)
+        value=prepare_payload(ROOT/'build/Broccoli.app',payload,os.getuid(),bindings)
         assert verify_payload(payload)==value
-        assert plistlib.loads((payload/'HotTurkey.app/Contents/Info.plist').read_bytes())['HotTurkeySystemMode'] is True
+        assert plistlib.loads((payload/'Broccoli.app/Contents/Info.plist').read_bytes())['HotTurkeySystemMode'] is True
         proof.update(real_signed_payload_verified=True,inventory_entries=len(value['files']),system_app_mode_sealed=True)
         def refresh():
             value['files']=inventory(payload,ignore_manifest=True);(payload/'payload.json').write_text(json.dumps(value))
@@ -49,7 +49,7 @@ def main():
                 else:raise AssertionError('Debuggable or unhardened code accepted')
         proof['real_unhardened_and_debuggable_signatures_rejected']=True
         poison=root/'poison';poison.mkdir();(poison/'sitecustomize.py').write_text('raise RuntimeError("user code imported")')
-        python=payload/'HotTurkey.app/Contents/Resources/python/bin/python3'
+        python=payload/'Broccoli.app/Contents/Resources/python/bin/python3'
         result=subprocess.run([str(python),'-I','-B','-c','import json,sys; print(json.dumps({"isolated":sys.flags.isolated,"no_user_site":sys.flags.no_user_site,"path":sys.path}))'],
                               cwd=poison,env={'PATH':'/nonexistent','PYTHONPATH':str(poison),'PYTHONHOME':'/nonexistent'},check=True,capture_output=True,text=True)
         runtime=json.loads(result.stdout);assert runtime['isolated']==1 and runtime['no_user_site']==1 and str(poison) not in runtime['path'] and '' not in runtime['path']

@@ -11,7 +11,7 @@ window.HotTurkeyNotifications=(()=>{
  async function change(input){
   if(busy)return;const enabled=input.checked;busy=true;paint();
   try{
-   if(enabled&&native()){permission=(await request('request')).granted;if(!permission){toast('请在系统设置中允许 HotTurkey 通知。');return;}}
+   if(enabled&&native()){permission=(await request('request')).granted;if(!permission){toast('请在系统设置中允许 Broccoli 通知。');return;}}
    await api('settings',{notifications:enabled});await window.refresh();
   }catch(error){toast(error.message);}finally{busy=false;paint();}
  }
