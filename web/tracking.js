@@ -25,10 +25,19 @@ window.HotTurkeyTracking=(()=>{
  const autotags=HotTurkeyAutoTagsUI.create({model,apiCall,load,attr,button,length,time});
  const clock=HotTurkeyClockUI.create({model,apiCall,render,load,attr,button,tagTools:tags,length});
  const media=HotTurkeyMedia.create({model,apiCall,render,load,tagModal,attr,button,select,time,resolveBar:(kind,at)=>dayIndex?.recordAt(kind,at)});
+ function documentIcon(record){
+  const resource=HotTurkeyDayData.documentIdentity(record,true);if(resource?.kind!=='file')return '';
+  const extension=resource.key.split('/').at(-1).match(/\.([a-z0-9]{1,8})$/i)?.[1].toLowerCase()||'';
+  const formats={pdf:['PDF','#d84540'],doc:['DOC','#3876bd'],docx:['DOC','#3876bd'],pages:['DOC','#df8a31'],xls:['XLS','#34845c'],xlsx:['XLS','#34845c'],csv:['CSV','#34845c'],numbers:['XLS','#34845c'],ppt:['PPT','#d66b3d'],pptx:['PPT','#d66b3d'],key:['PPT','#3876bd'],txt:['TXT','#718094'],md:['MD','#718094'],rtf:['RTF','#718094'],zip:['ZIP','#94734b'],gz:['ZIP','#94734b'],tar:['ZIP','#94734b'],png:['IMG','#5c8f85'],jpg:['IMG','#5c8f85'],jpeg:['IMG','#5c8f85'],heic:['IMG','#5c8f85'],svg:['SVG','#5c8f85']};
+  const [label,color]=formats[extension]||['','#8793a1'];
+  const content=label?`<rect x="1" y="11" width="18" height="8" rx="1.8" fill="${color}"/><text x="10" y="16.65" text-anchor="middle" fill="white" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="5.6" font-weight="700">${label}</text>`:'<path d="M7 10h6M7 13h6M7 16h4" stroke="#8793a1" stroke-width="1" stroke-linecap="round"/>';
+  return `<span class="activity-icon" data-decorated="true" data-document-type="${extension||'file'}" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 1.5h7l4.5 4.5v11.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z" fill="#fff" stroke="#b6bdc6"/><path d="M12 1.8V6h4.2" fill="#edf0f4" stroke="#b6bdc6" stroke-linejoin="round"/>${content}</svg></span>`;
+ }
  function icon(record){
   if(record.timeline==='documents'){
    const target=record.website_target||(HotTurkeyDayData.rootDomain(record.url||record.document)?(record.url||record.document):record.domain||'');
    if(target)return `<span class="activity-icon" data-activity-kind="website" data-activity-target="${attr(target)}" aria-hidden="true"></span>`;
+   const file=documentIcon(record);if(file)return file;
    return `<span class="mt-color" style="--item-color:${attr(record.color)}" aria-hidden="true"></span>`;
   }
   const app=record.timeline==='applications'||record.application,target=record.bundle?'bundle:'+record.bundle:record.application||record.group_name||record.name;
