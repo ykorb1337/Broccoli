@@ -7,12 +7,14 @@ import plistlib
 import shutil
 import subprocess
 from pathlib import Path
+try:from signing import sign as sign_bundle,developer_id_signed
+except ModuleNotFoundError:from scripts.signing import sign as sign_bundle,developer_id_signed
 
 ROOT=Path(__file__).resolve().parent.parent
 BUILD=ROOT/'build'
 
 def sign(path):
-    subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(path)],check=True)
+    sign_bundle(path,deep=True)
     subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(path)],check=True)
 
 def compile_setup(mode):
@@ -72,7 +74,7 @@ def distribution(main):
     subprocess.run(['/usr/bin/ditto','-c','-k','--keepParent',str(ROOT/'extension'),str(extension)],check=True)
     files=[image,uninstall,extension]
     (out/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files))
-    (BUILD/'distribution-proof.json').write_text(json.dumps({'version':version,'build':info['CFBundleVersion'],'architecture':architecture,'uninstaller_bundled':False,'developer_id_signed':False,'notarized':False,'files':[{'name':p.name,'size':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]},indent=2))
+    (BUILD/'distribution-proof.json').write_text(json.dumps({'version':version,'build':info['CFBundleVersion'],'architecture':architecture,'uninstaller_bundled':False,'developer_id_signed':developer_id_signed(main),'notarized':False,'files':[{'name':p.name,'size':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]},indent=2))
     print('Distribution:',image)
 
 if __name__=='__main__':

@@ -63,10 +63,10 @@ async function load(){
   for(const block of result.blocks||[]){
     if(!ids.includes(block.id))continue;
     if(result.tab_unblock_available===1)tabs.append(tabAction(block));
-    if(!['text','delay'].includes(block.break?.type))continue;
+    if(!['text','delay','meal'].includes(block.break?.type))continue;
     const row=document.createElement('div');row.className='break-item';row.dataset.block=block.id;
     const label=document.createElement('span');label.textContent=block.name+' · ';
-    const button=document.createElement('button');button.textContent=block.break.type==='text'?'输入文本以休息（整条规则）':'开始等待以休息（整条规则）';button.onclick=()=>requestBreak(block.id);
+    const button=document.createElement('button');button.textContent=block.break.type==='meal'?'用餐休息（这条规则）':block.break.type==='text'?'输入文本以休息（整条规则）':'开始等待以休息（整条规则）';button.disabled=block.break.type==='meal'&&!block.break.left;button.onclick=()=>requestBreak(block.id);
     row.append(label,button);breaks.append(row);
   }
   const webPage=ids.length&&/^https?:\/\//.test(info.url);

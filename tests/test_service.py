@@ -29,6 +29,20 @@ class ServiceTests(unittest.TestCase):
         code,value=self.request('/api/'+path,data);self.assertEqual(code,200,value);return value
     def block(self,**kw):return self.call('blocks/save',{'block':{'name':'Work','websites':['example.com'],'enabled':True,**kw}})
     def test_no_token_rejected(self):self.assertEqual(self.request('/api/state',token=False)[0],401)
+    def test_meal_break_is_immediate_under_rule_and_settings_locks(self):
+        b=self.block(**{'break':{'type':'meal'}});self.call('blocks/lock',{'id':b['id'],'type':'timer','until':self.service.engine.now()+3600})
+        other=self.block(name='Other',websites=['other.example'])
+        self.call('settings',{'password':'manager','protect_overview':True})
+        result=self.call('blocks/break',{'id':b['id']})['break_status'];self.assertTrue(result['allowed']);self.assertEqual(result['left'],1)
+        self.assertFalse(self.call('check',{'url':'https://example.com'})['blocked']);self.assertTrue(self.call('check',{'url':'https://other.example'})['blocked'])
+        result=self.call('blocks/break',{'id':b['id'],'finish':True})['break_status'];self.assertFalse(result['allowed']);self.assertEqual(result['left'],1)
+        self.assertTrue(self.call('check',{'url':'https://example.com'})['blocked']);self.assertTrue(self.service.engine.locked(self.service.engine.find(b['id'])))
+    def test_meal_break_rejects_forged_quota_and_global_routes(self):
+        b=self.block(**{'break':{'type':'meal'}})
+        self.assertEqual(self.request('/api/blocks/break',{'id':b['id']},token=False)[0],401)
+        for data in [{'minutes':999},{'until':1e20},{'finish':'yes'}]:self.assertEqual(self.request('/api/blocks/break',{'id':b['id'],**data})[0],400)
+        for path in ['meal-break/start','meal-break/end']:self.assertEqual(self.request('/api/'+path,{})[0],400)
+        self.assertEqual(self.service.engine.status(self.service.engine.find(b['id']))['break_status']['used'],0)
     def test_device_enable_requires_a_safety_word(self):
         self.assertEqual(self.request('/api/blocks/save',{'block':{'name':'Sleep','device':'sleep','enabled':True,'confirm_device':True}})[0],400)
         self.call('device/configure-recovery',{'word':'fixture-escape'})

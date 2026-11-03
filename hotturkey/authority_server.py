@@ -174,7 +174,8 @@ class PolicyRPC:
                 if data.get('stop_plan') and (uid!=self.authority.controller_uid or not self.authority.authenticated(uid,session)):raise PolicyError('紧急停用计划需要管理账户验证；仍可用安全词放行本次时段')
                 return self.authority.engine(uid).recover_device(_text(data['word'],256,'安全词'),data.get('stop_plan',False))
             if operation=='break':
-                if set(data)-{'id','answer'}:raise PolicyError('休息字段无效')
+                if set(data)-{'id','answer','finish'}:raise PolicyError('休息字段无效')
+                if 'finish' in data and type(data['finish']) is not bool:raise PolicyError('休息选项无效')
                 ident=_text(data.get('id'),128,'规则')
                 if 'answer' in data:_text(data['answer'],5000,'答案')
                 return self.authority.engine(uid).request_break(ident,data)

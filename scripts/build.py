@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+try:from signing import sign
+except ModuleNotFoundError:from scripts.signing import sign
 
 ROOT=Path(__file__).resolve().parent.parent
 BUILD=ROOT/"build"
@@ -55,10 +57,10 @@ def main():
         for framework in frameworks:command.extend(["-framework",framework])
         subprocess.run(command,check=True)
         if name!='HotTurkey':
-            subprocess.run(["/usr/bin/codesign","--force","--options","runtime","--sign","-",str(BUILD/name)],check=True)
+            sign(BUILD/name,runtime=True)
     for name,flags in [('HotTurkeySystemAgent',[])]+([('HotTurkeySystemAgentQA',['-DHOTTURKEY_QA'])] if args.qa else []):
         subprocess.run(['/usr/bin/clang','-fobjc-arc','-O2','-Wall','-Wextra','-Werror','-mmacosx-version-min=12.0','-framework','Foundation','-framework','SystemConfiguration','-framework','IOKit',*flags,str(ROOT/'native/SystemAgent.m'),'-o',str(BUILD/name)],check=True)
-        subprocess.run(['/usr/bin/codesign','--force','--options','runtime','--sign','-',str(BUILD/name)],check=True)
+        sign(BUILD/name,runtime=True)
     app=BUILD/"Broccoli.app/Contents"
     (app/"MacOS").mkdir(parents=True,exist_ok=True)
     resources=app/"Resources";resources.mkdir(exist_ok=True)
@@ -98,8 +100,8 @@ def main():
             if path.is_symlink() or not path.is_file():continue
             with path.open('rb') as stream:magic=stream.read(4)
             if magic in {b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca'}:
-                subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(path)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-    info={"CFBundleName":"Broccoli","CFBundleDisplayName":"Broccoli","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"28","CFBundleShortVersionString":"0.7.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"Broccoli uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
+                sign(path,quiet=True)
+    info={"CFBundleName":"Broccoli","CFBundleDisplayName":"Broccoli","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"34","CFBundleShortVersionString":"0.7.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"Broccoli uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
     info['CFBundleIconFile']='Broccoli.icns'
     (app/"Info.plist").write_bytes(plistlib.dumps(info))
     from build_distribution import build_uninstaller,distribution
@@ -107,7 +109,7 @@ def main():
     embedded_uninstaller=resources/'HotTurkey Uninstaller.app'
     if embedded_uninstaller.exists():shutil.rmtree(embedded_uninstaller)
     # Ad-hoc signing allows local execution; distribution still needs a Developer ID.
-    subprocess.run(["/usr/bin/codesign","--force","--deep","--sign","-",str(BUILD/"Broccoli.app")],check=True)
+    sign(BUILD/"Broccoli.app",deep=True)
     firefox=BUILD/"firefox-extension"
     shutil.copytree(ROOT/"extension",firefox,dirs_exist_ok=True)
     manifest=json.loads((firefox/"manifest.json").read_text())
@@ -122,7 +124,7 @@ def main():
         shutil.copytree(BUILD/"Broccoli.app",qa,symlinks=True)
         qa_info={**info,"CFBundleIdentifier":"local.hotturkey.qa","CFBundleDisplayName":"Broccoli QA","HotTurkeyDataDirectory":str(ROOT/".runtime")}
         (qa/"Contents/Info.plist").write_bytes(plistlib.dumps(qa_info))
-        subprocess.run(["/usr/bin/codesign","--force","--deep","--sign","-",str(qa)],check=True)
+        sign(qa,deep=True)
     print("Built:",BUILD/"Broccoli.app")
     print("Browser extension:",ROOT/"extension")
     print('Python runtime:',sys.executable+' (development only)' if args.system_python else 'bundled, relocatable')

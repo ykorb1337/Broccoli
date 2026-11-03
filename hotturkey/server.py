@@ -154,6 +154,10 @@ class Service:
 
     def api(self,path,method,data,query,headers):
         e=self.engine
+        if path=='/api/blocks/break' and method=='POST':
+            block=e.find(data.get('id'))
+            interval=e.interval(block)
+            if (interval[2] if interval else block['break'])['type']=='meal':return e.request_break(block['id'],data)
         if path.startswith('/api/google-calendar/'):
             if not self.authorized(headers):raise PolicyError('请先输入设置密码')
             from .google_calendar import GoogleCalendar,dispatch

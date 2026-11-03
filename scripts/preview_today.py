@@ -80,16 +80,18 @@ def main():
     parser.add_argument('--source',type=Path,default=Path.home()/'Library/Application Support/HotTurkey')
     parser.add_argument('--day',default=dt.datetime.now().astimezone().date().isoformat())
     parser.add_argument('--calendar-snapshot',action='store_true',help='额外读取安装版日历缓存，只读展示，不复制 Google 凭据')
+    parser.add_argument('--calendar-draft',action='store_true',help='允许编辑独立日历副本，不连接 Google 或回写安装版')
     parser.add_argument('--port',type=int,default=0)
     parser.add_argument('--output',type=Path,default=ROOT/'build/current-day-preview-url.txt')
     args=parser.parse_args()
+    if args.calendar_draft and not args.calendar_snapshot:parser.error('--calendar-draft requires --calendar-snapshot')
     with tempfile.TemporaryDirectory(prefix='hotturkey-today-preview-') as directory:
         service=Service(directory,port=args.port,enforce=False)
         try:
             proof=copy_today(args.source,service,args.day)
             if args.calendar_snapshot:
                 from hotturkey.google_calendar_preview import attach_snapshot
-                proof.update(attach_snapshot(args.source,service))
+                proof.update(attach_snapshot(args.source,service,editable=args.calendar_draft))
             args.output.parent.mkdir(parents=True,exist_ok=True)
             args.output.write_text(service.origin+'/#token='+service.token);args.output.chmod(0o600)
             args.output.with_name(args.output.stem+'-proof.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2))

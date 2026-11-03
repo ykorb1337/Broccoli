@@ -78,6 +78,30 @@ class CalendarTests(unittest.TestCase):
   self.connected();self.responses=[{'id':'created'},{'id':'existing'}]
   self.client.save('calendar',None,self.value());self.client.save('calendar','instance/id',self.value(),'"v1"')
   self.assertEqual(self.calls[0][0],'POST');self.assertEqual(self.calls[1][0],'PATCH');self.assertIn('instance%2Fid',self.calls[1][1]);self.assertEqual(self.calls[1][3]['If-Match'],'"v1"');self.assertNotIn('attendees',self.calls[1][2]);self.assertIn('sendUpdates=all',self.calls[0][1])
+ def test_timed_and_all_day_conversion_uses_nested_patch_semantics(self):
+  self.connected();remote={**self.value(),'id':'existing','etag':'"v1"','colorId':'11','description':'keep me','attachments':[{'fileUrl':'https://example.com/notes'}]}
+  def request(method,endpoint,data=None,headers=None,form=False):
+   self.assertEqual(method,'PATCH');self.assertEqual(headers['If-Match'],'"v1"')
+   for key,item in data.items():
+    if isinstance(item,dict):
+     target=remote.setdefault(key,{})
+     for name,value in item.items():
+      if value is None:target.pop(name,None)
+      else:target[name]=copy.deepcopy(value)
+    else:remote[key]=copy.deepcopy(item)
+   # Like the API, reject simultaneous date-only and clock fields.
+   for key in ['start','end']:
+    self.assertNotEqual('date' in remote[key],'dateTime' in remote[key])
+   return copy.deepcopy(remote)
+  self.client.request=request
+  original={'start':{'date':'2026-11-01'},'end':{'date':'2026-11-02'}}
+  result=self.client.save('calendar','existing',original,'"v1"')
+  self.assertEqual(result['start'],{'date':'2026-11-01'});self.assertEqual(result['end'],{'date':'2026-11-02'})
+  result=self.client.save('calendar','existing',self.value(),'"v1"')
+  self.assertEqual(result['start'],self.value()['start']);self.assertEqual(result['end'],self.value()['end'])
+  self.assertEqual(result['colorId'],'11');self.assertEqual(result['description'],'keep me');self.assertEqual(len(result['attachments']),1)
+  self.assertEqual(original,{'start':{'date':'2026-11-01'},'end':{'date':'2026-11-02'}})
+
  def test_concurrent_change_and_read_only_errors(self):
   self.connected()
   for code in [403,404,410,412,429]:
@@ -96,8 +120,22 @@ class CalendarTests(unittest.TestCase):
   self.assertEqual(self.calls,[])
  def test_delete_etag_and_paths(self):
   self.connected();self.client.delete('a/other','id','"version"');self.assertEqual(self.calls[0][0],'DELETE');self.assertIn('a%2Fother',self.calls[0][1]);self.assertEqual(self.calls[0][3]['If-Match'],'"version"')
+ def test_response_updates_only_verified_self_without_replacing_guests(self):
+  self.connected();self.responses=[{'etag':'v1','attendees':[{'self':True,'email':'me@example.com','responseStatus':'accepted'},{'email':'other@example.com','responseStatus':'tentative'}]},{'id':'event'}]
+  self.client.respond('calendar','event','declined','v1')
+  self.assertEqual(self.calls[-1][0],'PATCH');self.assertEqual(self.calls[-1][2],{'attendeesOmitted':True,'attendees':[{'email':'me@example.com','responseStatus':'declined'}]});self.assertEqual(self.calls[-1][3]['If-Match'],'v1')
+ def test_response_rejects_missing_self_and_concurrent_changes(self):
+  self.connected()
+  for value in [{'etag':'v2','attendees':[{'self':True,'email':'me@example.com'}]},{'etag':'v1','attendees':[{'email':'other@example.com'}]},{'etag':'v1','status':'cancelled','attendees':[{'self':True,'email':'me@example.com'}]}]:
+   self.responses=[value]
+   with self.assertRaises(PolicyError):self.client.respond('calendar','event','accepted','v1')
+  self.assertTrue(all(call[0]=='GET' for call in self.calls))
+ def test_response_invalid_input_never_reaches_google(self):
+  for value,etag in [('anything','v1'),('accepted',None),('declined','')]:
+   with self.assertRaises(PolicyError):self.client.respond('calendar','event',value,etag)
+  self.assertEqual(self.calls,[])
  def test_get_requests_cannot_mutate(self):
-  for path in ['configure','connect','disconnect','save','delete','cancel']:
+  for path in ['configure','connect','disconnect','save','delete','respond','cancel']:
    with self.assertRaises(PolicyError):dispatch(self.client,path,'GET',{}, {})
   self.assertEqual(self.calls,[])
 
@@ -119,7 +157,7 @@ class CalendarServiceTests(unittest.TestCase):
    with urllib.request.urlopen(request,timeout=5) as reply:return reply.status,json.load(reply)
   except urllib.error.HTTPError as error:return error.code,json.load(error)
  def test_local_token_and_password_protect_all_routes(self):
-  routes=['status','calendars','colors','labels','events','event','configure','connect','cancel','disconnect','save','delete']
+  routes=['status','calendars','colors','labels','events','event','configure','connect','cancel','disconnect','save','delete','respond']
   for route in routes:self.assertEqual(self.request('google-calendar/'+route,token=False)[0],401)
   self.request('settings','POST',{'password':'fixture-password'})
   for route in routes:self.assertEqual(self.request('google-calendar/'+route)[0],400)
@@ -131,7 +169,12 @@ class CalendarServiceTests(unittest.TestCase):
   self.assertEqual(self.service.store.state,before)
   for table,count in counts.items():self.assertEqual(self.service.store.db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],count)
  def test_mutations_require_post(self):
-  for route in ['configure','connect','cancel','disconnect','save','delete']:self.assertEqual(self.request('google-calendar/'+route)[0],400)
+  for route in ['configure','connect','cancel','disconnect','save','delete','respond']:self.assertEqual(self.request('google-calendar/'+route)[0],400)
+ def test_future_overview_preference_persists_without_modifying_rules(self):
+  before=copy.deepcopy(self.service.store.state['blocks'])
+  self.assertEqual(self.request('settings','POST',{'calendar_overview_future':False})[0],200)
+  saved=json.loads(self.service.store.db.execute('SELECT value FROM state WHERE id=1').fetchone()[0]);self.assertFalse(saved['settings']['calendar_overview_future']);self.assertEqual(saved['blocks'],before)
+  self.assertEqual(self.request('settings','POST',{'calendar_overview_future':'yes'})[0],400);self.assertFalse(self.service.store.state['settings']['calendar_overview_future'])
  def test_static_calendar_assets_served(self):
   import urllib.request
   for name in ['google-calendar.js','google-calendar-data.js','google-calendar.css']:
@@ -149,14 +192,27 @@ class CalendarServiceTests(unittest.TestCase):
 
 
 class CalendarSnapshotTests(unittest.TestCase):
+ def test_editable_snapshot_uses_production_validation_but_cannot_reach_google(self):
+  from hotturkey.google_calendar_preview import CalendarSnapshot
+  event={'id':'one','etag':'v1','summary':'Local copy','start':{'dateTime':'2026-11-02T09:00:00-05:00'},'end':{'dateTime':'2026-11-02T10:00:00-05:00'},'attendees':[{'self':True,'email':'private@example.com','responseStatus':'accepted'},{'email':'guest@example.com'}]}
+  cache={json.dumps(['a','start','end']):{'items':[event],'timeZone':'America/New_York','synced_at':1}};before=copy.deepcopy(cache)
+  draft=CalendarSnapshot(cache,[{'id':'a','accessRole':'owner','primary':True}],editable=True)
+  self.assertTrue(draft.status()['preview_copy']);self.assertNotIn('private@example.com',json.dumps(draft.get('a','one')))
+  result=dispatch(draft,'respond','POST',{'calendar':'a','event':'one','etag':'v1','response':'declined'},{});self.assertEqual(result['attendees'][0]['responseStatus'],'declined');self.assertEqual(len(result['attendees']),2)
+  saved=draft.save('a','one',{'summary':'Changed copy','start':event['start'],'end':event['end']},result['etag']);self.assertEqual(saved['summary'],'Changed copy');self.assertEqual(cache,before)
+  for path in ['configure','connect','disconnect','cancel']:
+   with self.assertRaises(PolicyError):dispatch(draft,path,'POST',{}, {})
+  with self.assertRaises(PolicyError):draft.call('GET','https://www.googleapis.com/calendar/v3/calendars')
  def test_snapshot_is_read_only_without_credentials(self):
   from hotturkey.google_calendar_preview import CalendarSnapshot
   event={'id':'one','summary':'Real source shape','start':{'date':'2026-11-01'},'end':{'date':'2026-11-02'},'attendees':[{'email':'private@example.com','self':True,'responseStatus':'declined'}]}
   cache={json.dumps(['a','start','end']):{'items':[event],'timeZone':'America/New_York','synced_at':1}}
-  snapshot=CalendarSnapshot(cache);self.assertTrue(snapshot.status()['read_only']);self.assertEqual(snapshot.calendars()['items'][0]['accessRole'],'reader')
+  metadata=[{'id':'a','labels':[{'id':'lecture','name':'Lectures','backgroundColor':'#4285f4'}]}]
+  snapshot=CalendarSnapshot(cache,metadata);self.assertTrue(snapshot.status()['read_only']);self.assertEqual(snapshot.calendars()['items'][0]['accessRole'],'reader')
+  self.assertEqual(snapshot.labels('a')['items'],metadata[0]['labels']);snapshot.labels('a')['items'].clear();self.assertEqual(len(snapshot.labels('a')['items']),1)
   self.assertEqual(len(snapshot.events('a','2026-11-01T04:00:00Z','2026-11-02T05:00:00Z')['items']),1)
   self.assertNotIn('email',snapshot.get('a','one')['attendees'][0])
-  for path in ['configure','connect','cancel','disconnect','save','delete']:
+  for path in ['configure','connect','cancel','disconnect','save','delete','respond']:
    with self.assertRaises(PolicyError):dispatch(snapshot,path,'POST',{}, {})
 
 class CalendarLabelTests(unittest.TestCase):

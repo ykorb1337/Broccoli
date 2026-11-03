@@ -94,7 +94,7 @@ final class DesktopStyle {
                      "chart":"chart.bar.xaxis", "settings":"gearshape", "moon":"moon", "plus":"plus",
                      "close":"xmark", "copy":"doc.on.doc", "download":"square.and.arrow.down",
                      "upload":"square.and.arrow.up", "lock":"lock", "reset":"arrow.counterclockwise",
-                     "trash":"trash", "folder":"folder", "app":"app", "globe":"globe", "bed":"bed.double"]
+                     "trash":"trash", "folder":"folder", "app":"app", "application":"macwindow.on.rectangle", "terminal":"terminal", "globe":"globe", "bed":"bed.double"]
         var result: [String: String] = [:]
         for (key, name) in names {
             guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(

@@ -111,6 +111,8 @@ body[data-view="overview"] .metrics { margin-top:2px; }
 .metric small { font-size:12px; margin-left:7px; }
 .section-head { display:flex; justify-content:space-between; align-items:center; gap:14px; margin:26px 2px 12px; }
 .section-head small { font-size:12px; }
+.meal-rule-actions { display:flex; align-items:center; gap:8px; }
+.meal-rule-actions .tiny { color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .cards { display:grid; gap:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; }
 .card { position:relative; display:flex; align-items:center; gap:13px; padding:16px 18px; background:var(--panel); }
 .card+.card:before { content:""; position:absolute; left:65px; right:18px; top:0; height:1px; background:var(--line); }
@@ -462,3 +464,56 @@ code { padding:3px 5px; border-radius:4px; background:var(--field); font:11px ui
 #toast.saved { display:flex; align-items:center; gap:8px; padding:9px 15px; border-radius:11px; font-size:13px; }
 #toast.saved::before { content:'✓'; color:var(--green); font-size:15px; font-weight:500; }
 .native-sheet #toast.saved { display:none; }
+
+/* Rule editors share compact controls and wrap long targets without a horizontal scroller. */
+#editor-panel textarea,.lock-row-wide textarea { white-space:pre-wrap; overflow-wrap:anywhere; overflow-x:hidden; }
+.sheet-group-content>.field input.rule-color { justify-self:end; width:46px; height:30px; min-height:30px; padding:3px; border:1px solid var(--line); background:var(--panel); cursor:pointer; }
+.rule-color::-webkit-color-swatch-wrapper { padding:1px; }
+.rule-color::-webkit-color-swatch { border:0; border-radius:4px; }
+.block-icon[style] { color:var(--rule-color); background:color-mix(in srgb,var(--rule-color) 12%,var(--panel)); }
+.lock-value:has(.gc-datetime) { width:290px; max-width:78%; }
+.lock-value .gc-datetime { gap:5px; }
+.lock-value .gc-datetime button { padding:4px 7px; font-size:13px; line-height:20px; gap:5px; }
+.lock-value .gc-picker-chevron { width:9px; flex-basis:9px; margin-left:3px; }
+.modal-content { max-height:none; overflow-x:hidden; }
+.modal-inner { display:flow-root; }
+#editor-panel textarea { overflow-y:auto; }
+
+/* Weekly drafts use the same calendar as the schedule page, without a second list. */
+dialog[data-kind="rule-schedule"] { --modal-width:960px; --modal-height:780px; height:var(--modal-height); }
+dialog[data-kind="rule-schedule"] .modal-content { display:flex; flex-direction:column; overflow-y:hidden; padding-bottom:14px; }
+dialog[data-kind="rule-schedule"] .modal-inner { display:flex; flex-direction:column; flex:1; min-height:0; }
+dialog[data-kind="rule-schedule"] .modal-inner>.field,dialog[data-kind="rule-schedule"] .tabs { flex-shrink:0; }
+dialog[data-kind="rule-schedule"] #editor-panel { display:flex; flex-direction:column; flex:1; min-height:0; }
+.editor-weekly { display:flex; flex-direction:column; flex:1; gap:12px; min-height:0; }
+.editor-schedule-controls { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.editor-mode { display:flex; align-items:center; gap:12px; font-size:13px; }
+.editor-mode>span { color:var(--muted); flex-shrink:0; }
+.editor-mode select { width:auto; min-width:156px; }
+.editor-weekly .schedule-scroller { scrollbar-gutter:auto; overflow-x:hidden; min-height:140px; }
+.editor-weekly .timeline { grid-template-columns:48px repeat(7,minmax(0,1fr)); grid-template-rows:38px 720px; height:758px; min-height:758px; }
+.editor-weekly .calendar-date { display:none; }
+.editor-weekly .calendar-event-content { padding:4px; }
+.editor-weekly .calendar-event-content>b { font-size:12px; }
+.editor-weekly .calendar-event { cursor:grab; }
+.calendar-dragging { opacity:.35; }
+.modal-footer [data-action="delete-interval"] { margin-right:auto; }
+@media(max-width:620px) { .editor-mode { gap:6px; } .editor-mode>span { display:none; } .editor-mode select { min-width:120px; } }
+
+/* A complete weekly draft stays visible while a smaller editor floats above it. */
+.editor-weekly .schedule-scroller { overflow:hidden; container-type:size; scrollbar-gutter:auto; }
+.editor-weekly .timeline { height:100%; min-height:0; grid-template-rows:32px minmax(0,1fr); }
+.editor-weekly .calendar-event-content { justify-content:flex-start; padding:1px 3px; }
+.editor-weekly .calendar-event-content>small { display:none; }
+.editor-weekly .time-labels span { font-size:12px; }
+@container(max-height:540px) { .editor-weekly .time-labels span:nth-child(2n) { visibility:hidden; } }
+@container(max-height:300px) { .editor-weekly .time-labels span:not(:nth-child(4n + 1)) { visibility:hidden; } }
+.calendar-event.preview { left:4px; right:4px; width:auto; white-space:nowrap; transition:none; }
+#interval-modal { --modal-width:560px; position:fixed; inset:0; width:min(560px,calc(var(--ui-width,100vw) - 40px)); height:fit-content; max-width:calc(var(--ui-width,100vw) - 40px); max-height:calc(var(--ui-height,100vh) - 36px); margin:auto; border:1px solid var(--glass-edge); border-radius:16px; background:var(--panel); box-shadow:var(--shadow); }
+#interval-modal[open]>.interval-modal-body { display:flex; flex-direction:column; min-height:0; max-height:inherit; width:100%; }
+#interval-modal .modal-content { display:block; flex:1; min-height:0; overflow-y:auto; padding-bottom:4px; }
+#interval-modal .modal-inner { display:flow-root; }
+#interval-modal::backdrop { background:rgba(0,0,0,.12); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+@keyframes rule-mode-in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+.editor-weekly,.editor-mode { animation:rule-mode-in .18s ease-out; }
+html:not(.native-sheet) #modal { transition:width .18s ease; }

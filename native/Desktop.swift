@@ -317,6 +317,11 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
            let text=body["url"] as? String,let url=URL(string:text),DesktopLinks.allowsGoogleCalendar(url) {
             NSWorkspace.shared.open(url);return
         }
+        if let body=message.body as? [String:Any],body["op"] as? String=="google-calendar-detail-link",
+           let text=body["url"] as? String,text.utf8.count<=8192,
+           let url=URL(string:text),DesktopLinks.allowsCalendarDetail(url) {
+            NSWorkspace.shared.open(url);return
+        }
         if let body=message.body as? [String:Any],body["op"] as? String=="notification-permission",
            let request=body["request"] as? String,request.range(of:#"^[a-zA-Z0-9_-]{1,80}$"#,options:.regularExpression) != nil,
            let mode=body["mode"] as? String,["status","request"].contains(mode) {

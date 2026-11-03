@@ -30,12 +30,22 @@ final class DesktopSheet: NSObject, NSWindowDelegate {
     private var preparing = false
     private var presented = false
     private var editorRendered = false
+    private var preferredSize = NSSize(width: 720, height: 500)
+    private var parentObservers: [NSObjectProtocol] = []
     var onFailure: (() -> Void)?
     var onPresentation: ((Bool) -> Void)?
 
     init(parent: NSWindow, web: WKWebView, host: NSView) {
         self.parent = parent; self.web = web; self.host = host
+        super.init()
+        for name in [NSWindow.didResizeNotification, NSWindow.didChangeScreenNotification] {
+            parentObservers.append(NotificationCenter.default.addObserver(forName: name, object: parent, queue: .main) { [weak self] _ in
+                self?.resizeToParent()
+            })
+        }
     }
+
+    deinit { parentObservers.forEach(NotificationCenter.default.removeObserver) }
 
     func present() {
         guard panel == nil, !preparing, let web else { return }
@@ -95,11 +105,8 @@ final class DesktopSheet: NSObject, NSWindowDelegate {
         }
         guard let width = value["modalWidth"] as? Double, let height = value["modalHeight"] as? Double,
               width.isFinite, height.isFinite, (100...16000).contains(width), (100...16000).contains(height) else { return }
-        let size = constrained(width: width, height: height)
-        let old = panel.contentView?.bounds.size ?? .zero
-        if abs(old.width - size.width) > 1 || abs(old.height - size.height) > 1 {
-            panel.setContentSize(size)
-        }
+        preferredSize = NSSize(width: width, height: height)
+        resizeToParent()
         panel.appearance = parent?.appearance
         panel.title = String((value["modalTitle"] as? String ?? "编辑").prefix(160))
         if !presented, let parent {
@@ -108,6 +115,15 @@ final class DesktopSheet: NSObject, NSWindowDelegate {
             panel.makeFirstResponder(web)
             onPresentation?(true)
             finishInitialRendering()
+        }
+    }
+
+    private func resizeToParent() {
+        guard let panel else { return }
+        let size = constrained(width: preferredSize.width, height: preferredSize.height)
+        let old = panel.contentView?.bounds.size ?? .zero
+        if abs(old.width - size.width) > 1 || abs(old.height - size.height) > 1 {
+            panel.setContentSize(size)
         }
     }
 
@@ -136,9 +152,9 @@ final class DesktopSheet: NSObject, NSWindowDelegate {
     }
 
     private func constrained(width: Double, height: Double) -> NSSize {
-        let frame = parent?.frame.size ?? NSSize(width: 920, height: 650)
+        let frame = parent?.contentLayoutRect.size ?? NSSize(width: 920, height: 650)
         return NSSize(width: min(max(300, width), max(300, frame.width - 48)),
-                      height: min(max(160, height), max(160, frame.height - 90)))
+                      height: min(max(160, height), max(160, frame.height - 48)))
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

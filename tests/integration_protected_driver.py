@@ -92,7 +92,11 @@ def legacy_ready(layout):
             if state.get('enforcement',{}).get('desktop_connected'):return
         except (OSError,ValueError,KeyError):pass
         time.sleep(.1)
-    raise AssertionError('Disposable legacy backend did not become ready')
+    log=layout.folder/'fixture-jobs/legacy.log'
+    diagnostic=log.read_text(errors='replace')[-2000:] if log.exists() else 'No fixture output'
+    plan=plistlib.loads((layout.folder/'fixture-jobs/legacy.plist').read_bytes())
+    status=subprocess.run(['/bin/launchctl','print','gui/'+str(os.getuid())+'/'+plan['Label']],capture_output=True,text=True).stdout
+    raise AssertionError('Disposable legacy backend did not become ready: '+diagnostic+'\n'+status)
 
 
 def main():

@@ -38,6 +38,24 @@ class RPCTests(unittest.TestCase):
 
     def block(self):return self.call('save',{'block':{'name':'Locked','enabled':True,'websites':['example.com']}})
 
+    def test_meal_break_belongs_to_the_requesting_account_and_rule(self):
+        b=self.call('save',{'block':{'name':'Meal','enabled':True,'websites':['example.com'],'break':{'type':'meal'}}})
+        other=self.call('save',{'block':{'name':'Other','enabled':True,'websites':['other.example'],'break':{'type':'meal'}}})
+        self.call('lock',{'id':b['id'],'type':'timer','until':self.clock.now+3600})
+        self.assertTrue(self.call('break',{'id':b['id']},uid=502)['break_status']['allowed'])
+        self.assertFalse(self.authority.engine(502).evaluate('https://example.com')['blocked']);self.assertTrue(self.authority.engine(502).evaluate('https://other.example')['blocked'])
+        self.assertTrue(self.authority.engine(501).evaluate('https://example.com')['blocked'])
+        self.assertTrue(self.authority.engine(501).locked(self.authority.engine(501).find(b['id'])))
+        self.assertEqual(self.authority.engine(502).break_state(self.authority.engine(502).find(b['id']))['used'],1);self.assertEqual(self.authority.engine(501).break_state(self.authority.engine(501).find(b['id']))['used'],0)
+        self.call('break',{'id':b['id'],'finish':True},uid=502);self.assertTrue(self.authority.engine(502).evaluate('https://example.com')['blocked'])
+    def test_meal_break_rejects_identity_and_time_overrides(self):
+        b=self.call('save',{'block':{'name':'Meal','enabled':True,'websites':['example.com'],'break':{'type':'meal'}}})
+        for data in [{'uid':501},{'minutes':999},{'until':1e20},{'finish':'yes'}]:
+            with self.assertRaises(PolicyError):self.call('break',{'id':b['id'],**data},uid=502)
+        for role in ['browser','session']:
+            identity=PeerIdentity(502,20,123,b'x'*32,role=role)
+            with self.assertRaises(PolicyError):self.rpc.dispatch(identity,{'op':'break','data':{'id':b['id']}})
+        self.assertEqual(self.authority.engine(502).break_state(self.authority.engine(502).find(b['id']))['used'],0)
     def start(self,verifier=None,workers=8):
         self.server=AuthorityServer(self.authority,Path(self.temp.name)/'socket',verifier or (lambda _:PeerIdentity(501,20,123,b'x'*32)),workers=workers,tick_interval=.05)
         self.server.bind()

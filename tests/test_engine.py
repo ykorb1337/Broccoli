@@ -25,6 +25,20 @@ class EngineTests(unittest.TestCase):
     def check(self,url="https://example.com",**kw):return self.engine.evaluate(url,**kw)["blocked"]
     def raises(self,fn,*args,**kw):self.assertRaises(PolicyError,fn,*args,**kw)
 
+    def test_custom_break_text_mode_and_legacy_text(self):
+        for mode in ['custom', 'characters']:
+            with self.subTest(mode=mode):
+                b=self.make(name='Text '+mode,**{'break':{'type':'text','text_mode':mode,'custom_text':'专注\nKeep focus'}})
+                self.assertEqual(self.engine.request_break(b['id'],{})['challenge'],'专注\nKeep focus')
+                self.raises(self.engine.request_break,b['id'],{'answer':'wrong'})
+                self.engine.request_break(b['id'],{'answer':'专注\nKeep focus'})
+                self.assertTrue(self.engine.break_state(b)['allowed'])
+
+    def test_empty_custom_break_text_is_rejected(self):
+        for text in ['', '  \n ']:
+            with self.subTest(text=text):
+                self.raises(self.make,**{'break':{'type':'text','text_mode':'custom','custom_text':text}})
+
     def test_domain_boundary_and_subdomains(self):
         self.assertTrue(matches("example.com","https://sub.example.com/a"));self.assertFalse(matches("example.com","https://evil-example.com"));self.assertFalse(matches("example.com","https://example.com.evil.org"))
     def test_browser_page_specification_cases(self):

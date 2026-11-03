@@ -17,6 +17,8 @@
   reset:'M4 10a8 8 0 1 1 1 8 M4 4v6h6',
   trash:'M4 7h16 M9 7V4h6v3 M6 7l1 14h10l1-14 M10 10v7 M14 10v7',
   folder:'M3 6h7l2 3h9v11H3z', app:'M4 4h16v16H4z M4 9h16 M9 9v11',
+  application:'M7 3h10a2 2 0 0 1 2 2v2 M5 7h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2 M3 12h16 M7 9.5h.01 M10 9.5h.01',
+  terminal:'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2 M7 9l3 3-3 3 M13 15h4',
   globe:'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M3 12h18 M5 6.5h14 M5 17.5h14 M12 3c-5 4-5 14 0 18 M12 3c5 4 5 14 0 18'
  };
  function icon(name) {
@@ -29,7 +31,7 @@
  const navigation={overview:'overview',blocks:'shield',schedule:'calendar',statistics:'chart',settings:'settings'};
  const buttons={new:['plus','新建拦截规则'],'new-device':['bed','新建睡眠计划'],duplicate:['copy','复制规则'],delete:['trash','删除规则'],close:['close','关闭'],
   export:['upload','导出规则'],'export-stats':['upload','导出统计'],import:['download','导入规则'],'calendar-add':['plus','添加时段'],
-  'reset-pomodoro':['reset','重置番茄钟'],'pick-app':['app','选择应用'],'pick-folder':['folder','选择文件夹'],'pick-binary':['app','选择可执行文件']};
+  'reset-pomodoro':['reset','重置番茄钟'],'pick-app':['application','选择应用'],'pick-folder':['folder','选择文件夹'],'pick-binary':['terminal','选择可执行文件']};
  const activityImages=new Map(),activityPending=new Set();
  function applyActivityImage(element){
   const target=element.dataset.activityTarget||'';
@@ -153,6 +155,8 @@
    const height=selector=>modal.querySelector(selector)?.getBoundingClientRect().height||0;
    const padding=parseFloat(getComputedStyle(modal.querySelector('.modal-content')).paddingBottom)||0;
    value.modalWidth=Math.min(16000,(parseFloat(getComputedStyle(modal).getPropertyValue('--modal-width'))||720)*scale);value.modalHeight=Math.min(16000,Math.max(160,height('.modal-head')+height('.modal-inner')+height('.modal-footer')+padding*scale));
+   const preferredHeight=parseFloat(getComputedStyle(modal).getPropertyValue('--modal-height'));if(preferredHeight)value.modalHeight=preferredHeight*scale;
+   const picker=modal.querySelector('.gc-picker-popover');if(picker)value.modalHeight=Math.max(value.modalHeight,(picker.scrollHeight+22)*scale);
    value.modalTitle=modal.querySelector('.modal-head h2')?.textContent||'编辑';
   }
   const key=JSON.stringify(value);if(key!==lastNative){lastNative=key;window.webkit?.messageHandlers?.native?.postMessage(value);}

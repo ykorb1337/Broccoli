@@ -1,5 +1,6 @@
 """Independent Google Calendar client. No policy/rule/recorder dependencies."""
 import base64
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -8,6 +9,7 @@ import re
 import secrets
 import threading
 import time
+import uuid
 import tempfile
 from functools import wraps
 import urllib.error
@@ -23,6 +25,7 @@ API='https://www.googleapis.com/calendar/v3/'
 TOKEN='https://oauth2.googleapis.com/token'
 BASE_SCOPES=['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events']
 LABEL_SCOPE='https://www.googleapis.com/auth/calendar.calendars.readonly'
+LABEL_WRITE_SCOPE='https://www.googleapis.com/auth/calendar.calendars'
 SCOPES=BASE_SCOPES+[LABEL_SCOPE]
 class CalendarHTTPError(Exception):
     def __init__(self,status):self.status=status
@@ -91,7 +94,7 @@ class GoogleCalendar:
         with self.lock:
             config=self.config();connected=bool(self.credentials().get('refresh_token') or self.credentials().get('access_token')) if config else False
             if self.pending and self.pending['expires']<time.monotonic():self.pending=None;self.error='登录已过期，请重试'
-            return {'configured':bool(config),'client_id':config.get('client_id',''),'connected':connected,'pending':bool(self.pending),'error':self.error,'label_permission':connected and LABEL_SCOPE in self.credentials().get('granted_scopes',[])}
+            return {'configured':bool(config),'client_id':config.get('client_id',''),'connected':connected,'pending':bool(self.pending),'error':self.error,'label_permission':connected and bool({LABEL_SCOPE,LABEL_WRITE_SCOPE,'https://www.googleapis.com/auth/calendar'}&set(self.credentials().get('granted_scopes',[]))),'label_write_permission':connected and bool({LABEL_WRITE_SCOPE,'https://www.googleapis.com/auth/calendar'}&set(self.credentials().get('granted_scopes',[])))}
     def configure(self,value):
         with self.lock:
             installed=value.get('installed') if isinstance(value,dict) else None
@@ -104,7 +107,8 @@ class GoogleCalendar:
     def cancel(self):
         with self.lock:self.pending=None;self.generation+=1
         return {'ok':True}
-    def begin(self):
+    def begin(self,manage_labels=False):
+        if type(manage_labels) is not bool:raise PolicyError('授权选项无效')
         with self.lock:
             config=self.config()
             if not config:raise PolicyError('请先导入桌面应用客户端配置')
@@ -126,7 +130,7 @@ class GoogleCalendar:
             redirect='http://127.0.0.1:'+str(self.oauth.server_port)+'/oauth2callback'
             self.pending={'state':state,'verifier':verifier,'redirect':redirect,'expires':time.monotonic()+600,'generation':self.generation}
             self.error=''
-            params={'client_id':config['client_id'],'redirect_uri':redirect,'response_type':'code','scope':' '.join(SCOPES),'state':state,'code_challenge':base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode(),'code_challenge_method':'S256','access_type':'offline','prompt':'consent'}
+            params={'client_id':config['client_id'],'redirect_uri':redirect,'response_type':'code','scope':' '.join(SCOPES+([LABEL_WRITE_SCOPE] if manage_labels else [])),'state':state,'code_challenge':base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode(),'code_challenge_method':'S256','access_type':'offline','prompt':'consent'}
             return {'url':'https://accounts.google.com/o/oauth2/v2/auth?'+url.urlencode(params)}
     def complete(self,query):
         with self.lock:
@@ -168,7 +172,7 @@ class GoogleCalendar:
             try:return self.request(method,API+path+('?' +url.urlencode(params) if params else ''),data,headers=headers)
             except CalendarHTTPError as error:
                 if error.status==401:self._credentials['expires_at']=0;raise PolicyError('Google 授权需要刷新，请重试') from None
-                message={403:'没有权限操作此日历，或 Google Calendar API 尚未启用',404:'事件已不存在，请刷新日历',410:'事件已被删除，请刷新日历',412:'事件已在其他设备修改，请刷新后重试',429:'请求过于频繁，请稍后重试'}.get(error.status,'Google 日历操作失败，请稍后重试')
+                message={403:'没有权限操作此日历，或 Google Calendar API 尚未启用',404:'事件已不存在，请刷新日历',410:'事件已被删除，请刷新日历',412:'日历内容已在其他设备修改，请刷新后重试',429:'请求过于频繁，请稍后重试'}.get(error.status,'Google 日历操作失败，请稍后重试')
                 raise PolicyError(message) from None
     @synchronized
     def calendars(self):
@@ -188,8 +192,28 @@ class GoogleCalendar:
             items=[{k:label[k] for k in ['id','name','backgroundColor'] if k in label} for label in value.get('labelProperties',{}).get('eventLabels',[])]
             result={'items':items,'needs_authorization':False}
         except PolicyError as error:
-            result={'items':[],'needs_authorization':LABEL_SCOPE not in self.credentials().get('granted_scopes',[]),'error':str(error)}
+            result={'items':[],'needs_authorization':not self.status()['label_permission'],'error':str(error)}
         self.label_cache[calendar]={'until':time.monotonic()+300,'value':result};return result
+    @synchronized
+    def create_label(self,calendar,name,color):
+        if not isinstance(name,str) or not 1<=len(name.strip())<=50 or any(ord(c)<32 for c in name):raise PolicyError('标签名称须为 1–50 个字符')
+        if not isinstance(color,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',color):raise PolicyError('请选择有效的标签颜色')
+        if not self.status().get('label_write_permission'):raise PolicyError('请先授权管理日历标签')
+        key=identifier(calendar)
+        if self.call('GET','users/me/calendarList/'+key).get('accessRole')!='owner':raise PolicyError('只有日历所有者可以添加标签')
+        current=self.call('GET','calendars/'+key);etag=current.get('etag')
+        if not isinstance(etag,str) or not etag:raise PolicyError('请刷新日历后再添加标签')
+        properties=copy.deepcopy(current.get('labelProperties') or {});labels=properties.setdefault('eventLabels',[])
+        name=name.strip();color=color.lower()
+        for label in labels:
+            if str(label.get('name','')).strip().casefold()==name.casefold():
+                if label.get('backgroundColor','').lower()==color:return {'label':{k:label[k] for k in ['id','name','backgroundColor'] if k in label},'items':[{k:item[k] for k in ['id','name','backgroundColor'] if k in item} for item in labels]}
+                raise PolicyError('已存在同名标签')
+        if len(labels)>=200:raise PolicyError('每个日历最多 200 个标签')
+        label={'id':str(uuid.uuid4()),'name':name,'backgroundColor':color};labels.append(label)
+        self.call('PATCH','calendars/'+key,{'labelProperties':properties},etag=etag)
+        self.label_cache.pop(calendar,None)
+        return {'label':label,'items':[{k:item[k] for k in ['id','name','backgroundColor'] if k in item} for item in labels]}
     @synchronized
     def events(self,calendar,since,until):
         a=moment({'dateTime':since})[1];b=moment({'dateTime':until})[1]
@@ -217,7 +241,7 @@ class GoogleCalendar:
     def get(self,calendar,event):return self.call('GET','calendars/'+identifier(calendar)+'/events/'+identifier(event))
     @synchronized
     def save(self,calendar,event,value,etag=None):
-        if not isinstance(value,dict) or set(value)-{'summary','description','location','start','end','recurrence','attendees','reminders'}:raise PolicyError('事件内容无效')
+        if not isinstance(value,dict) or set(value)-{'summary','description','location','start','end','recurrence','attendees','reminders','eventLabelId'}:raise PolicyError('事件内容无效')
         for field,limit in [('summary',1000),('description',20000),('location',2000)]:
             if field in value and (not isinstance(value[field],str) or len(value[field])>limit):raise PolicyError('事件文本过长或无效')
         if 'start' not in value or 'end' not in value:raise PolicyError('请选择事件时间')
@@ -234,12 +258,40 @@ class GoogleCalendar:
             if not isinstance(r,dict) or set(r)-{'useDefault','overrides'} or type(r.get('useDefault')) is not bool:raise PolicyError('提醒无效')
             rows=r.get('overrides',[])
             if not isinstance(rows,list) or len(rows)>5 or any(not isinstance(x,dict) or set(x)!={'method','minutes'} or x['method'] not in ('popup','email') or type(x['minutes']) is not int or not 0<=x['minutes']<=40320 for x in rows):raise PolicyError('提醒无效')
+        if 'eventLabelId' in value:
+            label=value['eventLabelId']
+            if not isinstance(label,str) or len(label)>128 or any(ord(c)<32 for c in label):raise PolicyError('标签无效')
+            if label:
+                definitions=self.labels(calendar)
+                if definitions.get('error') or definitions.get('needs_authorization'):raise PolicyError('无法读取标签，请刷新或重新授权')
+                if not any(row.get('id')==label for row in definitions['items']):raise PolicyError('标签已不存在，请刷新后重试')
         if event and not etag:raise PolicyError('请刷新事件后再保存')
         path='calendars/'+identifier(calendar)+'/events'+('/'+identifier(event) if event else '')
         if event and 'attendees' in value:
             previous=self.get(calendar,event);existing={row.get('email','').lower():row for row in previous.get('attendees',[])}
             value={**value,'attendees':[{**existing.get(row['email'].lower(),{}),**row} for row in value['attendees']]}
-        result=self.call('PATCH' if event else 'POST',path,value,params={'sendUpdates':'all'},etag=etag)
+        # PATCH merges nested objects. A date-only update must explicitly remove
+        # the existing clock fields (and vice versa), otherwise Google receives
+        # both date and dateTime and rejects the event.
+        payload=copy.deepcopy(value)
+        if event:
+            for key in ('start','end'):
+                clear={'dateTime':None,'timeZone':None} if kind=='date' else {'date':None}
+                payload[key]={**clear,**payload[key]}
+        result=self.call('PATCH' if event else 'POST',path,payload,params={'sendUpdates':'all',**({'eventLabelVersion':1} if 'eventLabelId' in value else {})},etag=etag)
+        self._clear_cache();return result
+    @synchronized
+    def respond(self,calendar,event,response,etag):
+        if response not in ('accepted','declined','tentative') or not isinstance(etag,str) or not etag:raise PolicyError('请选择参加状态并刷新事件')
+        previous=self.get(calendar,event)
+        if previous.get('etag')!=etag:raise PolicyError('事件已在其他设备修改，请刷新后重试')
+        attendees=[row for row in previous.get('attendees',[]) if row.get('self') is True]
+        if len(attendees)!=1 or not isinstance(attendees[0].get('email'),str) or not re.fullmatch(r'[^\s@,<>]+@[^\s@,<>]+\.[^\s@,<>]+',attendees[0]['email']):raise PolicyError('此事件没有可回复的本人邀请')
+        if previous.get('status')=='cancelled':raise PolicyError('此事件已取消')
+        # attendeesOmitted updates this participant's response without replacing
+        # the invitation list. The caller cannot nominate another participant.
+        value={'attendeesOmitted':True,'attendees':[{'email':attendees[0]['email'],'responseStatus':response}]}
+        result=self.call('PATCH','calendars/'+identifier(calendar)+'/events/'+identifier(event),value,etag=etag)
         self._clear_cache();return result
     @synchronized
     def delete(self,calendar,event,etag):
@@ -258,6 +310,7 @@ class GoogleCalendar:
 
 def dispatch(client,path,method,data,query):
     if getattr(client,'read_only',False) and method!='GET':raise PolicyError('只读日历预览不能连接或修改 Google 账号')
+    if getattr(client,'preview_copy',False) and method=='POST' and path not in ('save','respond','delete','labels/create'):raise PolicyError('独立副本不能连接或更改 Google 账号')
     get=lambda key:query.get(key,[''])[0]
     if method=='GET':
         if path=='status':return client.status()
@@ -268,9 +321,11 @@ def dispatch(client,path,method,data,query):
         if path=='event':return client.get(get('calendar'),get('event'))
     if method=='POST':
         if path=='configure':return client.configure(data.get('configuration'))
-        if path=='connect':return client.begin()
+        if path=='connect':return client.begin(data.get('manage_labels',False))
+        if path=='labels/create':return client.create_label(data.get('calendar'),data.get('name'),data.get('color'))
         if path=='cancel':return client.cancel()
         if path=='disconnect':return client.disconnect()
         if path=='save':return client.save(data.get('calendar'),data.get('event'),data.get('value'),data.get('etag'))
+        if path=='respond':return client.respond(data.get('calendar'),data.get('event'),data.get('response'),data.get('etag'))
         if path=='delete':return client.delete(data.get('calendar'),data.get('event'),data.get('etag'))
     raise PolicyError('Google 日历操作无效')

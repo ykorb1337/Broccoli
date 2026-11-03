@@ -6,7 +6,7 @@ import uuid
 from urllib.parse import urlsplit, unquote
 
 LOCKS = {"none", "timer", "range", "text", "password", "delay", "schedule", "restart"}
-BREAKS = {"none", "pomodoro", "allowance", "reward", "text", "delay", "sessions"}
+BREAKS = {"none", "pomodoro", "allowance", "reward", "text", "delay", "sessions", "meal"}
 PERIODS = {"day", "week", "month", "rolling", "schedule"}
 CATEGORIES = {
     "社交网络": ["facebook.com", "instagram.com", "x.com", "twitter.com", "reddit.com", "tiktok.com", "weibo.com", "xiaohongshu.com"],
@@ -22,7 +22,7 @@ DEFAULT_SETTINGS = {
     "require_extension": False, "block_unsupported": False,
     "block_task_manager": False, "block_settings": False, "block_installer": False,
     "notifications": True, "warning_minutes": [2, 5], "retention_days": 90,
-    "week_start": "monday", "clock_24": True,
+    "week_start": "monday", "clock_24": True, "calendar_overview_future": True,
     "settings_password": None, "protect_overview": False,
     "device_recovery_hash":None,
     "open_at_login": False, "start_in_tray": False,
@@ -91,6 +91,9 @@ def validate_break(value):
     if not isinstance(v, dict) or v.get("type", "none") not in BREAKS:
         raise PolicyError("休息类型无效")
     v["type"] = v.get("type", "none")
+    if v["type"]=="meal":
+        v["meal_daily_limit"]=integer(v.get("meal_daily_limit",2),1,6,"每日用餐休息次数")
+        v["break_minutes"]=integer(v.get("break_minutes",30),1,180,"用餐休息分钟")
     for k, default, high in [("work_minutes",25,57600),("break_minutes",5,1440),("allowance_minutes",30,57600),("window_minutes",60,57600),("delay_minutes",1,57600),("sessions",3,10000),("text_length",30,5000),("refill_minute",0,1439)]:
         v[k] = integer(v.get(k, default), 0 if k == "refill_minute" else 1, high, k)
     v["period"] = v.get("period", "day")
@@ -100,8 +103,10 @@ def validate_break(value):
         raise PolicyError("滚动周期只适用于使用额度")
     v["custom_text"] = str(v.get("custom_text", ""))[:5000]
     v["text_mode"] = v.get("text_mode", "characters")
-    if v["text_mode"] not in {"characters","words"}:
+    if v["text_mode"] not in {"characters","words","custom"}:
         raise PolicyError("文本类型无效")
+    if v["type"]=="text" and v["text_mode"]=="custom" and not v["custom_text"].strip():
+        raise PolicyError("请输入自定义文本")
     return v
 
 def validate_block(value, previous=None):
@@ -128,6 +133,8 @@ def validate_block(value, previous=None):
     if b["mode"] == "scheduled" and not b["schedule"]:
         raise PolicyError("请先添加日程")
     b["break"] = validate_break(b.get("break"))
+    if b.get("device","none")!="none" and (b["break"]["type"]=="meal" or any(row.get("break",{}).get("type")=="meal" for row in b["schedule"])):
+        raise PolicyError("用餐休息只适用于网站与应用规则")
     # Locks and runtime can only be changed by dedicated authenticated operations.
     b["lock"] = copy.deepcopy(previous.get("lock", {"type":"none"}) if previous else {"type":"none"})
     b["autostart"] = copy.deepcopy(b.get("autostart", {"type":"none"}))

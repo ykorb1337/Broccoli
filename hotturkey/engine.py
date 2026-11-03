@@ -156,11 +156,40 @@ class Engine:
         if period == "month": pivot=pivot.replace(day=1)
         return pivot.timestamp()
 
+    def _meal_status(self,b,br,now):
+        rt=self.runtime(b).get('meal',{})
+        day=max(dt.datetime.fromtimestamp(now).date().isoformat(),rt.get('day',''))
+        used=rt.get('used',0) if rt.get('day')==day else 0
+        remaining=max(0,rt.get('until',0)-now) if self.interval(b,now) and b['device']=='none' else 0
+        limit=br['meal_daily_limit']
+        return {'allowed':remaining>0,'type':'meal','remaining':remaining,'until':rt.get('until',0),
+                'day':day,'used':used,'limit':limit,'left':max(0,limit-used),
+                'label':'用餐休息' if remaining else '可用餐休息'}
+
+    def _request_meal_break(self,b,br,data):
+        if b['device']!='none':raise PolicyError('用餐休息只适用于网站与应用规则')
+        if set(data)-{'id','finish'} or ('finish' in data and type(data['finish']) is not bool):raise PolicyError('用餐休息请求无效')
+        rt=self.runtime(b)
+        if data.get('finish'):
+            if rt.get('meal',{}).get('until',0)>self.now():
+                rt['meal']['until']=self.now()
+                self.store.state['last_time']=max(self.store.state.get('last_time',0),self.now());self.store.save()
+            return self.status(b)
+        if not self.active(b):raise PolicyError('该规则目前未生效')
+        value=self._meal_status(b,br,self.now())
+        if value['allowed']:return self.status(b)
+        if not value['left']:raise PolicyError('这条规则今日的用餐休息次数已用完')
+        rt['meal']={'day':value['day'],'used':value['used']+1,'started':self.now(),'until':self.now()+br['break_minutes']*60}
+        self.store.state['last_time']=max(self.store.state.get('last_time',0),self.now())
+        self.store.save()
+        return self.status(b)
+
     def break_state(self,b):
         now, rt = self.now(), self.runtime(b)
         interval = self.interval(b,now)
         br = interval[2] if interval else b["break"]
         typ = br["type"]
+        if typ=="meal":return self._meal_status(b,br,now)
         if rt.get("break_until",0)>now:
             return {"allowed":True,"type":typ,"remaining":rt["break_until"]-now,"label":"休息中"}
         if typ == "pomodoro" and interval:
@@ -419,6 +448,10 @@ class Engine:
     def request_break(self,ident,data):
         with self.store.lock:
             b=self.find(ident)
+            interval=self.interval(b)
+            br=interval[2] if interval else b['break']
+            if br['type']=='meal':return self._request_meal_break(b,br,data)
+            if 'finish' in data:raise PolicyError('该规则未配置用餐休息')
             if not self.active(b): raise PolicyError("该规则目前未生效")
             br=self.interval(b)[2]
             rt=self.runtime(b)
@@ -487,6 +520,9 @@ class Engine:
                 rt=self.runtime(b)
                 br=self.interval(b)[2]
                 bs=self.break_state(b)
+                if bs['type']=='meal' and bs['allowed']:
+                    if hit:affected.append(b['id'])
+                    continue
                 if hit:
                     if kind=='website' and b['id'] in exemptions:
                         affected.append(b['id'])
