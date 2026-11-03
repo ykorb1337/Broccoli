@@ -1,7 +1,7 @@
 import csv,io,unittest
 from tests import test_tracking_usage as fixture
-from hotturkey.tracking_clipboard import copy_rows
-from hotturkey.model import PolicyError
+from broccoli.tracking_clipboard import copy_rows
+from broccoli.model import PolicyError
 
 
 class ClipboardTests(unittest.TestCase):

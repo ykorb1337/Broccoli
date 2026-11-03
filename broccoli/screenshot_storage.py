@@ -27,7 +27,9 @@ class ScreenshotStorage:
         if not isinstance(selected,str) or not selected or len(selected)>4096 or '\x00' in selected:raise PolicyError('截图目录无效')
         parent=Path(selected).expanduser()
         if not parent.is_absolute() or not parent.is_dir():raise PolicyError('请选择已有文件夹')
-        parent=parent.resolve();root=parent if parent.name=='HotTurkey Screenshots' else parent/'HotTurkey Screenshots'
+        parent=parent.resolve()
+        # Accept existing legacy locations without nesting another directory.
+        root=parent if parent.name in {'Broccoli Screenshots','HotTurkey Screenshots'} else parent/'Broccoli Screenshots'
         try:
             root.mkdir(mode=0o700,exist_ok=True)
             info=root.lstat()

@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from .engine import Engine,password_ok
 from .model import DEFAULT_SETTINGS
+from .paths import user_data_directory,policy_database
 from .setup_policy import UNINSTALLER_BUNDLE,uninstall_blocked
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -31,7 +32,7 @@ def application_info(path,identifier=None):
 class Setup:
     def __init__(self,home=None,runner=subprocess.run,*,job_prefix='local.hotturkey'):
         self.home=Path(home) if home is not None else Path.home()
-        self.data=self.home/'Library/Application Support/HotTurkey'
+        self.data=user_data_directory(self.home)
         self.app=self.home/'Applications/Broccoli.app'
         self.legacy_app=self.home/'Applications/HotTurkey.app'
         self.uninstaller=self.home/'Applications/Broccoli Uninstaller.app'
@@ -41,7 +42,7 @@ class Setup:
         self.runner=runner
 
     def state(self):
-        path=self.data/'hotturkey.sqlite3'
+        path=policy_database(self.data)
         if not path.exists():return None
         if path.is_symlink():raise ValueError('数据位置不能是符号链接。')
         with contextlib.closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
@@ -63,7 +64,7 @@ class Setup:
         engine=self.state();reason=uninstall_blocked(engine,self.identities(source)) if engine else ''
         version=''
         if self.app.exists() or self.legacy_app.exists():version=str(application_info(self.app if self.app.exists() else self.legacy_app,'local.hotturkey.desktop').get('CFBundleShortVersionString',''))
-        return {'installed':self.app.exists() or self.legacy_app.exists() or self.service.exists(),'version':version,'has_data':engine is not None,'requires_password':bool(engine and engine.store.state['settings']['settings_password']),'uninstall_blocked':bool(reason),'reason':reason,'location':'~/Applications','data_location':'~/Library/Application Support/HotTurkey'}
+        return {'installed':self.app.exists() or self.legacy_app.exists() or self.service.exists(),'version':version,'has_data':engine is not None,'requires_password':bool(engine and engine.store.state['settings']['settings_password']),'uninstall_blocked':bool(reason),'reason':reason,'location':'~/Applications','data_location':'~/'+self.data.relative_to(self.home).as_posix()}
 
     def authorize(self,source,password='',removal=False):
         for path in [self.data,self.app,self.legacy_app,self.uninstaller,self.service,self.desktop,self.data/'runtime']:

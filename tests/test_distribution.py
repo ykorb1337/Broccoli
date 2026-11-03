@@ -13,13 +13,13 @@ class DistributionTests(unittest.TestCase):
     def tearDown(self):self.temp.cleanup()
     def test_main_without_uninstaller_or_private_data_is_allowed(self):builder.validate_main(self.app)
     def test_uninstall_backend_cannot_ship_with_the_main_app(self):
-        path=self.project/'hotturkey/uninstall.py';path.parent.mkdir();path.write_text('fixture')
+        path=self.project/'broccoli/uninstall.py';path.parent.mkdir();path.write_text('fixture')
         with self.assertRaises(ValueError):builder.validate_main(self.app)
     def test_nested_uninstaller_app_cannot_ship(self):
         (self.app/'Contents/Resources/Broccoli Uninstaller.app').mkdir()
         with self.assertRaises(ValueError):builder.validate_main(self.app)
     def test_local_data_and_client_configuration_are_rejected(self):
-        for name in ['hotturkey.sqlite3','tracking.sqlite3-wal','connection.json','client_secret_fixture.json']:
+        for name in ['broccoli.sqlite3','tracking.sqlite3-wal','connection.json','client_secret_fixture.json']:
             path=self.project/name;path.write_text('private fixture')
             with self.assertRaises(ValueError):builder.validate_main(self.app)
             path.unlink()

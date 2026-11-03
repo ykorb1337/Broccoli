@@ -4,6 +4,7 @@ import sqlite3
 import threading
 from pathlib import Path
 from .model import DEFAULT_SETTINGS
+from .paths import policy_database
 
 class Store:
     def __init__(self, directory):
@@ -11,8 +12,8 @@ class Store:
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.directory, 0o700)
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.directory / "hotturkey.sqlite3"), check_same_thread=False)
-        os.chmod(self.directory / "hotturkey.sqlite3", 0o600)
+        self.db = sqlite3.connect(str(policy_database(self.directory)), check_same_thread=False)
+        os.chmod(policy_database(self.directory), 0o600)
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
           PRAGMA journal_mode=WAL;

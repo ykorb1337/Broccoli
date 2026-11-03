@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
+from broccoli.server import Service
 
 
 def wait_for(predicate, description, timeout=20):
@@ -32,7 +32,7 @@ def main():
     build=ROOT/'build'
     build.mkdir(exist_ok=True)
     log=logging.FileHandler(build/'recovery-integration.log',mode='w')
-    logging.getLogger('hotturkey').addHandler(log)
+    logging.getLogger('broccoli').addHandler(log)
     results={}
     with tempfile.TemporaryDirectory(prefix='recovery-',dir=build) as temporary:
         directory=Path(temporary)
@@ -123,7 +123,7 @@ def main():
             if service.agent_process is not None and service.agent_process.poll() is None:
                 service.agent_process.kill();service.agent_process.wait(timeout=3)
             service.store.db.close()
-            logging.getLogger('hotturkey').removeHandler(log)
+            logging.getLogger('broccoli').removeHandler(log)
             log.close()
     (build/'recovery-proof.json').write_text(json.dumps(results,indent=2))
     print(json.dumps(results,ensure_ascii=False))

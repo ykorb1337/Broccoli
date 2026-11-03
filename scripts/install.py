@@ -19,14 +19,15 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.runtime import application_python
+from broccoli.runtime import application_python
+from broccoli.paths import user_data_directory,policy_database
 
 
 def ensure_unlocked(directory):
-    if not (directory/'hotturkey.sqlite3').exists():return
-    from hotturkey.store import Store
-    from hotturkey.engine import Engine
-    from hotturkey.platform_macos import boot_id
+    if not policy_database(directory).exists():return
+    from broccoli.store import Store
+    from broccoli.engine import Engine
+    from broccoli.platform_macos import boot_id
     store=Store(directory)
     try:
         engine=Engine(store,boot_id=boot_id())
@@ -40,7 +41,7 @@ def manual_server(directory):
         request=urllib.request.Request(f'http://127.0.0.1:{info["port"]}/api/state',headers={'Authorization':'Bearer '+info['token']})
         with urllib.request.urlopen(request,timeout=1) as response:verified=response.status==200
         command=subprocess.check_output(['/bin/ps','-p',str(info['pid']),'-o','uid=,command='],text=True).strip().split(None,1)
-        if verified and int(command[0])==os.getuid() and '-m hotturkey.server' in command[1]:return info['pid']
+        if verified and int(command[0])==os.getuid() and any(module in command[1] for module in ('-m broccoli.server','-m hotturkey.server')):return info['pid']
     except (OSError,ValueError,KeyError,subprocess.SubprocessError):pass
     return None
 
@@ -53,7 +54,7 @@ def restart_old_hosts(directory):
     for line in processes.splitlines():
         parts=line.strip().split(None,2)
         if len(parts)!=3 or not parts[0].isdigit() or not parts[1].isdigit() or int(parts[1])!=os.getuid():continue
-        if not re.search(r'(?:^|\s)-m\s+hotturkey\.native_host(?:\s|$)',parts[2]):continue
+        if not re.search(r'(?:^|\s)-m\s+(?:broccoli|hotturkey)\.native_host(?:\s|$)',parts[2]):continue
         pid=int(parts[0])
         try:
             current=subprocess.check_output(['/usr/sbin/lsof','-a','-p',str(pid),'-d','cwd','-Fn'],text=True,stderr=subprocess.DEVNULL,timeout=2)
@@ -88,7 +89,7 @@ def install(app_source,target,app_target,launch,browser_files,extension_ids,prep
 
 def install_files(app_source,target,app_target,launch,browser_files,extension_ids,prepare_only=False):
     info=plistlib.loads((app_source/'Contents/Info.plist').read_bytes())
-    if info.get('CFBundleIdentifier')!='local.hotturkey.desktop':raise ValueError('安装源不是 HotTurkey 桌面应用')
+    if info.get('CFBundleIdentifier')!='local.hotturkey.desktop':raise ValueError('安装源不是 Broccoli 桌面应用')
     application_python(app_source)
     ensure_unlocked(target)
     if app_target.exists() and plistlib.loads((app_target/'Contents/Info.plist').read_bytes()).get('CFBundleIdentifier')!='local.hotturkey.desktop':raise ValueError('目标位置存在其他应用，拒绝覆盖')
@@ -112,12 +113,12 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
         if legacy.is_symlink() or plistlib.loads((legacy/'Contents/Info.plist').read_bytes()).get('CFBundleIdentifier')!='local.hotturkey.desktop':raise ValueError('旧应用位置不可信，已停止更新')
     with tempfile.TemporaryDirectory(prefix='.hotturkey-update-',dir=app_target.parent) as temporary:
         stage=Path(temporary);staged_runtime=stage/'runtime';staged_runtime.mkdir()
-        for folder in ['hotturkey','web','extension']:
+        for folder in ['broccoli','web','extension']:
             shutil.copytree(ROOT/folder,staged_runtime/folder,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         (staged_runtime/'build').mkdir()
         for name in ['HotTurkeyAgent','HotTurkeyPeerCheck','HotTurkeyTracker']:
             if (ROOT/'build'/name).exists():shutil.copy2(ROOT/'build'/name,staged_runtime/'build'/name)
-        if not (staged_runtime/'build/HotTurkeyAgent').exists():raise ValueError('先构建 HotTurkey 应用与执行器')
+        if not (staged_runtime/'build/HotTurkeyAgent').exists():raise ValueError('请先构建 Broccoli 应用与执行器')
         if not same_app:shutil.copytree(app_source,stage/'new.app',symlinks=True)
         ensure_unlocked(target)
         stopped=False;runtime_moved=False;app_moved=False;new_runtime=False;new_app=False;legacy_moved=False
@@ -140,7 +141,7 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
                 if app_target.exists():app_target.rename(stage/'old.app');app_moved=True
                 (stage/'new.app').rename(app_target);new_app=True
             python=application_python(app_target)
-            host.write_text('#!/bin/sh\ncd '+shlex.quote(str(runtime))+'\nexec '+shlex.quote(str(python))+' -E -s -B -m hotturkey.native_host\n');host.chmod(0o700)
+            host.write_text('#!/bin/sh\ncd '+shlex.quote(str(runtime))+'\nexec '+shlex.quote(str(python))+' -E -s -B -m broccoli.native_host\n');host.chmod(0o700)
             receipt.write_text(json.dumps({'app_path':str(app_target),'python_path':str(python)}))
             if ui_launch.exists() and legacy:
                 ui=plistlib.loads(ui_launch.read_bytes())
@@ -149,12 +150,12 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
                     ui_launch.write_bytes(plistlib.dumps(ui))
             for path in browser_files:
                 path.parent.mkdir(parents=True,exist_ok=True)
-                manifest={'name':'local.hotturkey.bridge','description':'HotTurkey local policy bridge','path':str(host),'type':'stdio'}
+                manifest={'name':'local.hotturkey.bridge','description':'Broccoli local policy bridge','path':str(host),'type':'stdio'}
                 if path.parent.parent.name=='Mozilla':manifest['allowed_extensions']=['hotturkey@local.hotturkey']
                 else:manifest['allowed_origins']=['chrome-extension://'+ident+'/' for ident in sorted(extension_ids)]
                 path.write_text(json.dumps(manifest,indent=2))
             launch.parent.mkdir(parents=True,exist_ok=True)
-            launch.write_bytes(plistlib.dumps({'Label':'local.hotturkey.service','ProgramArguments':[str(python),'-E','-s','-B','-m','hotturkey.server','--enforce'],'WorkingDirectory':str(runtime),'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':3,'StandardOutPath':str(target/'launch.log'),'StandardErrorPath':str(target/'launch-error.log'),'EnvironmentVariables':{'HOTTURKEY_DATA':str(target),'PATH':'/usr/bin:/bin:/usr/sbin:/sbin'}}))
+            launch.write_bytes(plistlib.dumps({'Label':'local.hotturkey.service','ProgramArguments':[str(python),'-E','-s','-B','-m','broccoli.server','--enforce'],'WorkingDirectory':str(runtime),'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':3,'StandardOutPath':str(target/'launch.log'),'StandardErrorPath':str(target/'launch-error.log'),'EnvironmentVariables':{'HOTTURKEY_DATA':str(target),'PATH':'/usr/bin:/bin:/usr/sbin:/sbin'}}))
             if not prepare_only:
                 subprocess.run(['/bin/launchctl','bootstrap',f'gui/{os.getuid()}',str(launch)],check=True)
                 deadline=time.monotonic()+15
@@ -175,7 +176,7 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
                 else:path.write_bytes(value[0]);path.chmod(value[1])
             if stopped:
                 if previous[launch]:subprocess.run(['/bin/launchctl','bootstrap',f'gui/{os.getuid()}',str(launch)],check=True)
-                elif runtime.exists():subprocess.Popen([sys.executable,'-E','-s','-B','-m','hotturkey.server','--enforce'],cwd=runtime,env={**os.environ,'HOTTURKEY_DATA':str(target)})
+                elif runtime.exists():subprocess.Popen([sys.executable,'-E','-s','-B','-m','broccoli.server','--enforce'],cwd=runtime,env={**os.environ,'HOTTURKEY_DATA':str(target)})
             raise
     return python
 
@@ -189,7 +190,7 @@ def main():
     args=parser.parse_args()
     for ident in args.extension_id:
         if not re.fullmatch('[a-p]{32}',ident):parser.error('Chromium 扩展 ID 须为 a–p 组成的 32 个字符')
-    target=Path.home()/'Library/Application Support/HotTurkey'
+    target=user_data_directory()
     launch=Path.home()/'Library/LaunchAgents/local.hotturkey.service.plist'
     browser_files=[Path.home()/'Library/Application Support'/folder/'NativeMessagingHosts/local.hotturkey.bridge.json' for folder in ['Google/Chrome','Microsoft Edge','BraveSoftware/Brave-Browser','Chromium','Vivaldi','Mozilla']]
     if args.uninstall:

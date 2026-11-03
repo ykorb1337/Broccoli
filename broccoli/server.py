@@ -13,12 +13,13 @@ from .engine import Engine, password_hash, password_ok
 from .model import PolicyError, CATEGORIES, DEFAULT_SETTINGS, integer, browser_page
 from .ipc import decode_json
 from .store import Store
+from .paths import user_data_directory
 
 ROOT=Path(__file__).resolve().parent.parent
-LOG=logging.getLogger("hotturkey")
+LOG=logging.getLogger("broccoli")
 
 def default_data():
-    return Path(os.environ.get("HOTTURKEY_DATA",str(Path.home()/"Library/Application Support/HotTurkey")))
+    return Path(os.environ['HOTTURKEY_DATA']) if 'HOTTURKEY_DATA' in os.environ else user_data_directory()
 
 class Service:
     def __init__(self,directory,port=0,enforce=False):
@@ -27,7 +28,7 @@ class Service:
         directory.mkdir(parents=True,exist_ok=True,mode=0o700)
         try:self.service_lease=ServiceLease(directory/'service.lock')
         except BlockingIOError:
-            raise PolicyError("HotTurkey 服务已在运行") from None
+            raise PolicyError("Broccoli 服务已在运行") from None
         self.singleton=self.service_lease.stream
         self.store=Store(directory)
         from .website_icons import WebsiteIcons

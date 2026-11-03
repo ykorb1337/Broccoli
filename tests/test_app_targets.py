@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hotturkey.app_targets import ApplicationTargets, app_info, key_values, steam_shortcut_id
-from hotturkey.engine import Engine
-from hotturkey.store import Store
+from broccoli.app_targets import ApplicationTargets, app_info, key_values, steam_shortcut_id
+from broccoli.engine import Engine
+from broccoli.store import Store
 
 
 class ApplicationTargetTests(unittest.TestCase):

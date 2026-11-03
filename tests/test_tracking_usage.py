@@ -3,12 +3,12 @@ import json
 import tempfile
 import unittest
 from unittest.mock import patch
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_timesheet import render as sheet
-from hotturkey.tracking_usage import render,retag
-from hotturkey.tracking_tags import identity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_timesheet import render as sheet
+from broccoli.tracking_usage import render,retag
+from broccoli.tracking_tags import identity
 
 
 class TimesheetUsageTests(unittest.TestCase):

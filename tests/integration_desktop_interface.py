@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
+from broccoli.server import Service
 
 
 def validate_proof(proof):
@@ -116,7 +116,7 @@ def main():
             service.store.event(time.time()-60,'演示账户','website','chatgpt.com',seconds=30)
         if args.tracking:
             import datetime as dt,base64,struct,zlib
-            from hotturkey.tracking import day_bounds
+            from broccoli.tracking import day_bounds
             start,end=day_bounds('2026-10-28')
             for timeline,a,b,title,group in [('computer',9,10,'Active','Active'),('computer',10,10.25,'Away','Away'),('computer',10.25,12,'Active','Active'),
                 ('applications',9,10,'Draft document','Fixture Editor'),('applications',10.25,11,'Research page','Fixture Browser'),('applications',11,12,'Notes','Fixture Notes'),

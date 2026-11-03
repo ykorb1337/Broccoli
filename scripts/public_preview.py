@@ -10,8 +10,9 @@ from urllib.parse import urlsplit
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
 from preview_today import copy_today
-from hotturkey.server import Service
-from hotturkey.tracking import DEFAULTS
+from broccoli.server import Service
+from broccoli.paths import user_data_directory
+from broccoli.tracking import DEFAULTS
 
 def redact(service):
     tracking=service.tracking;aliases={};sites={};documents={}
@@ -59,9 +60,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix='hotturkey-public-',dir='/private/tmp') as directory:
         service=Service(directory,enforce=False)
         try:
-            proof=copy_today(Path.home()/'Library/Application Support/HotTurkey',service,dt.datetime.now().astimezone().date().isoformat(),copy_images=False)
+            proof=copy_today(user_data_directory(),service,dt.datetime.now().astimezone().date().isoformat(),copy_images=False)
             count=redact(service);examples(service)
-            from hotturkey.google_calendar_preview import CalendarSnapshot
+            from broccoli.google_calendar_preview import CalendarSnapshot
             service.google_calendar=CalendarSnapshot({})
             proof.update(publication_preview=True,all_activity_text_replaced=True,private_images_copied=False,google_credentials_copied=False,interval_rows_preserved=count,data_directory=directory)
             output=ROOT/'build/public-preview.json';output.write_text(json.dumps({'url':service.origin+'/#token='+service.token,**proof},ensure_ascii=False,indent=2));output.chmod(0o600)

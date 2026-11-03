@@ -10,7 +10,7 @@ import unittest
 import urllib.request
 import urllib.error
 from pathlib import Path
-from hotturkey.server import Service
+from broccoli.server import Service
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
@@ -64,7 +64,7 @@ class ServiceTests(unittest.TestCase):
         self.session=self.call('auth',{'password':'manager'})['session']
         self.call('device/configure-recovery',{'word':'fixture-escape'})
     def test_single_instance(self):
-        from hotturkey.model import PolicyError
+        from broccoli.model import PolicyError
         with self.assertRaises(PolicyError):Service(self.temp.name)
     def test_foreign_origin_rejected(self):self.assertEqual(self.request('/api/state',origin='https://evil.com')[0],403)
     def test_dns_rebinding_host_rejected(self):self.assertEqual(self.request('/api/state',host='evil.com')[0],403)
@@ -164,7 +164,7 @@ class ServiceTests(unittest.TestCase):
         env={**os.environ,'HOTTURKEY_DATA':self.temp.name,'PYTHONDONTWRITEBYTECODE':'1'}
         messages=[{'op':'add-site-options','data':{}},{'op':'add-site','data':{'id':b['id'],'url':'https://new.example/a?secret=x','scope':'page','password':'manager'}}]
         wire=b''.join(struct.pack('<I',len(blob))+blob for blob in [json.dumps(m).encode() for m in messages])
-        output=subprocess.check_output([sys.executable,'-B','-m','hotturkey.native_host'],input=wire,env=env);results=[]
+        output=subprocess.check_output([sys.executable,'-B','-m','broccoli.native_host'],input=wire,env=env);results=[]
         while output:
             size=struct.unpack('<I',output[:4])[0];results.append(json.loads(output[4:4+size]));output=output[4+size:]
         self.assertEqual(results[0],{'authentication_required':True});self.assertTrue(results[1]['ok']);self.assertIn('https://new.example/a',self.service.engine.find(b['id'])['websites'])
@@ -220,7 +220,7 @@ class ServiceTests(unittest.TestCase):
         b=self.block();self.call('blocks/lock',{'id':b['id'],'type':'timer','until':self.service.engine.now()+60})
         env={**os.environ,'HOTTURKEY_DATA':self.temp.name,'PYTHONDONTWRITEBYTECODE':'1'}
         value={'op':'tab-unblock','data':{'context':'a'*48,'tab':7,'id':b['id'],'url':'https://example.com'}}
-        payload=json.dumps(value).encode();process=subprocess.run([sys.executable,'-m','hotturkey.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,env=env,check=True)
+        payload=json.dumps(value).encode();process=subprocess.run([sys.executable,'-m','broccoli.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,env=env,check=True)
         length=struct.unpack('<I',process.stdout[:4])[0];result=json.loads(process.stdout[4:4+length])
         self.assertTrue(result['policy']);self.assertIn('锁定条件',result['error'])
     def test_closed_internal_tab_reports_stats_and_bounded_notifications(self):
@@ -250,7 +250,7 @@ class ServiceTests(unittest.TestCase):
         env={**os.environ,'HOTTURKEY_DATA':self.temp.name,'PYTHONDONTWRITEBYTECODE':'1'}
         messages=[{'op':'check','data':{'url':'https://example.com'}},{'op':'delete','data':{}},{'op':'blocks/add-targets','data':{'id':'any','websites':['injected.example']}},{'op':'closed-tab','data':{'url':'edge://settings/privacy'}}]
         wire=b''.join(struct.pack('<I',len(blob))+blob for blob in [json.dumps(m).encode() for m in messages])
-        process=subprocess.run([sys.executable,'-m','hotturkey.native_host'],input=wire,capture_output=True,env=env,check=True)
+        process=subprocess.run([sys.executable,'-m','broccoli.native_host'],input=wire,capture_output=True,env=env,check=True)
         offset=0;results=[]
         while offset<len(process.stdout):
             size=struct.unpack('<I',process.stdout[offset:offset+4])[0];offset+=4;results.append(json.loads(process.stdout[offset:offset+size]));offset+=size
@@ -260,6 +260,6 @@ class ServiceTests(unittest.TestCase):
     def test_connection_private(self):self.assertEqual((Path(self.temp.name)/'connection.json').stat().st_mode&0o777,0o600)
     def test_static_resources_and_csp(self):
         with urllib.request.urlopen(self.service.origin+'/') as response:self.assertIn("script-src 'self'",response.headers['Content-Security-Policy']);self.assertIn(b'Broccoli',response.read())
-        self.assertEqual(self.request('/hotturkey/store.py')[0],404)
+        self.assertEqual(self.request('/broccoli/store.py')[0],404)
 
 if __name__=='__main__':unittest.main()

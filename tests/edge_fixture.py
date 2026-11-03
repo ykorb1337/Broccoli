@@ -5,7 +5,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
-data=Path.home()/'Library/Application Support/HotTurkey'
+from broccoli.paths import user_data_directory
+data=user_data_directory()
 info=json.loads((data/'connection.json').read_text())
 def call(path,value=None):
     req=urllib.request.Request(f'http://127.0.0.1:{info["port"]}/api/'+path,data=json.dumps(value).encode() if value is not None else None,headers={'Authorization':'Bearer '+info['token'],'Content-Type':'application/json'})

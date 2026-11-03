@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
+from broccoli.server import Service
 
 
 def main():
@@ -72,7 +72,7 @@ def main():
                 if self.path!='/bridge':self.send_error(404);return
                 env={**os.environ,'HOTTURKEY_DATA':str(service.store.directory),'PYTHONDONTWRITEBYTECODE':'1'}
                 payload=json.dumps(data).encode()
-                result=subprocess.run([sys.executable,'-B','-m','hotturkey.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,cwd=ROOT,env=env,timeout=8,check=True)
+                result=subprocess.run([sys.executable,'-B','-m','broccoli.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,cwd=ROOT,env=env,timeout=8,check=True)
                 size=struct.unpack('<I',result.stdout[:4])[0]
                 self.reply(json.loads(result.stdout[4:4+size]))
         http=ThreadingHTTPServer(('127.0.0.1',0),Handler)

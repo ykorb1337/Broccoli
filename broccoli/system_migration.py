@@ -70,7 +70,7 @@ def snapshot_database(source,destination,uid):
         rollback_journal=source.with_name(source.name+'-journal')
         if rollback_journal.exists() or rollback_journal.is_symlink():raise ValueError('源数据库仍有回退日志，请先通过旧后台完成恢复并安全停止')
         with tempfile.TemporaryDirectory(prefix='.db-copy-',dir=destination.parent) as temporary:
-            private=Path(temporary);copied=private/'hotturkey.sqlite3';observed={}
+            private=Path(temporary);copied=private/'broccoli.sqlite3';observed={}
             for suffix in ['', '-wal']:
                 path=source.with_name(source.name+suffix)
                 if suffix and not path.exists() and not path.is_symlink():continue
@@ -111,7 +111,7 @@ def migrate_database(source,destination,uid,source_uid,boot_id,resolve_user):
     if destination.exists() or destination.is_symlink():raise FileExistsError('迁移目标目录已存在')
     destination.mkdir(mode=0o700)
     try:
-        snapshot_database(source,destination/'hotturkey.sqlite3',source_uid)
+        snapshot_database(source,destination/'broccoli.sqlite3',source_uid)
         ensure_database_unlocked(destination,uid,boot_id,resolve_user)
         store=Store(destination)
         try:

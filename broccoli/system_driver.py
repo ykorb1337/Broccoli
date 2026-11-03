@@ -1,3 +1,4 @@
+from .paths import policy_database,DATABASE_FILES
 """Fixed-target protected cutover driver; not a public privilege entry point.
 
 A trusted installer must first copy the approved artifact and a consistent
@@ -58,9 +59,9 @@ class _Layout:
         if kind=='fresh':return None,None
         raise ValueError('升级数据来源无效')
     def origin(self):
-        file=self.database/'hotturkey.sqlite3'
+        file=policy_database(self.database)
         if file.exists() or file.is_symlink() or self.database.exists():return 'system'
-        file=self.legacy/'hotturkey.sqlite3'
+        file=policy_database(self.legacy)
         if file.exists() or file.is_symlink():return 'legacy'
         return 'fresh'
 
@@ -82,7 +83,7 @@ def _credential(state):
 
 def _private_state(directory,layout):
     protected_directory(directory,layout.owner_uid,layout.anchor)
-    path=directory/'hotturkey.sqlite3';info=path.lstat()
+    path=policy_database(directory);info=path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid!=layout.owner_uid or info.st_mode&0o077 or info.st_nlink!=1:raise PermissionError('预检数据库不是私有副本')
     db=sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)
     try:return validate_database(db)
@@ -120,7 +121,7 @@ def _verify_artifact(layout,expected,uid):
     if digest(manifest)!=expected:raise PermissionError('安装材料与已批准摘要不符')
     value=verify_payload(layout.artifact)
     if value['controller_uid']!=uid:raise PermissionError('安装材料管理账户不符')
-    if not (layout.artifact/'project/hotturkey/service_lease.py').is_file():raise ValueError('安装材料缺少交接锁协议')
+    if not (layout.artifact/'project/broccoli/service_lease.py').is_file():raise ValueError('安装材料缺少交接锁协议')
 
 
 def _stage(layout,context,approval):
@@ -137,7 +138,7 @@ def _stage(layout,context,approval):
         finally:store.db.close()
     else:
         source,source_uid=layout.source(approval['source']);source_uid=uid if source_uid is None else source_uid
-        migrate_database(source/'hotturkey.sqlite3',stages['database'],uid,source_uid,boot_id(),pwd.getpwuid)
+        migrate_database(policy_database(source),stages['database'],uid,source_uid,boot_id(),pwd.getpwuid)
     state=_private_state(stages['database'],layout)
     if _credential(state)[1]!=approval['credential_fingerprint']:raise PermissionError('预检后管理凭据发生变化')
     with ServiceLease(stages['database']/'service.lock',owner_uid=layout.owner_uid):pass
@@ -194,7 +195,7 @@ class _Driver(CutoverDriver):
             _owned_tree(self.layout.program,self.layout)
             protected_directory(self.layout.database,self.layout.owner_uid,self.layout.anchor)
             for path in self.layout.database.iterdir():
-                if path.name not in {'hotturkey.sqlite3','hotturkey.sqlite3-wal','hotturkey.sqlite3-shm','service.lock'}:raise PermissionError('已有共享数据包含未知项目，拒绝覆盖')
+                if path.name not in DATABASE_FILES|{'service.lock'}:raise PermissionError('已有共享数据包含未知项目，拒绝覆盖')
                 info=path.lstat()
                 if not stat.S_ISREG(info.st_mode) or info.st_uid!=self.layout.owner_uid or info.st_mode&0o077 or info.st_nlink!=1:raise PermissionError('已有共享数据权限或身份无效')
         self.records={'version':1,'source':approval.source,'credential_fingerprint':approval.credential_fingerprint}
@@ -327,9 +328,10 @@ class _Driver(CutoverDriver):
 
 def _production_layout(uid,job):
     if not isinstance(job,str) or not re.fullmatch('[a-f0-9]{32}',job):raise ValueError('安装作业无效')
+    from .paths import user_data_directory
     account=human_account(uid)
     return _Layout(REGISTRY/'jobs'/job,REGISTRY,INSTALL,DATA,MARKER,DAEMON,SESSION_PLIST,SOCKET_DIRECTORY,
-        Path(account.pw_dir)/'Library/Application Support/HotTurkey')
+        user_data_directory(account.pw_dir))
 
 
 def approve_private_copy(uid,job,expected,password):
@@ -352,7 +354,7 @@ class ProtectedDriver(_Driver):
 
 def _run_worker(layout,context,lock_fd,lease_fds):
     if type(lock_fd) is not int:raise RuntimeError('暂存工作进程缺少内核安装锁')
-    code='import sys;sys.path.insert(0,'+repr(str(layout.artifact/'project'))+');from hotturkey.system_driver import _worker_main;_worker_main('+repr(layout.folder.name)+')'
+    code='import sys;sys.path.insert(0,'+repr(str(layout.artifact/'project'))+');from broccoli.system_driver import _worker_main;_worker_main('+repr(layout.folder.name)+')'
     process=subprocess.Popen([str(layout.artifact/'Broccoli.app/Contents/Resources/python/bin/python3'),'-I','-B','-c',code],
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=(lock_fd,*lease_fds),close_fds=True,cwd='/',env={'PATH':'/usr/bin:/bin'})
     try:
@@ -371,7 +373,7 @@ def _worker_main(job):
     value=decode_json(__import__('sys').stdin.buffer.read(1024*1024+1))
     if not isinstance(value,dict) or set(value)!={'context','lock_fd','lease_fds'}:raise ValueError('暂存请求无效')
     context=value['context'];layout=_production_layout(context['controller_uid'],job)
-    if Path(__file__).resolve().parent!=layout.artifact/'project/hotturkey':raise PermissionError('暂存工作代码不在受保护材料中')
+    if Path(__file__).resolve().parent!=layout.artifact/'project/broccoli':raise PermissionError('暂存工作代码不在受保护材料中')
     index=pending_cutover(REGISTRY)
     if index is None or index['directory']!='jobs/'+job or index['transaction']!=context['transaction'] or index['payload_sha256']!=context['payload_sha256'] or index['controller_uid']!=context['controller_uid']:raise PermissionError('暂存请求不属于活动安装')
     descriptor=value['lock_fd'];info=os.fstat(descriptor);expected=(REGISTRY/'install.lock').lstat()

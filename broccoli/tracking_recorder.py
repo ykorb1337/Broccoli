@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from .tracking import finite
 
-LOG=logging.getLogger('hotturkey')
+LOG=logging.getLogger('broccoli')
 BROWSERS={'com.google.Chrome':'Chrome','com.microsoft.edgemac':'Edge','org.mozilla.firefox':'Firefox','com.brave.Browser':'Brave','com.vivaldi.Vivaldi':'Vivaldi','com.operasoftware.Opera':'Opera','com.apple.Safari':'Safari'}
 class TrackingRecorder:
     def __init__(self,tracking,clock=time.time,monotonic=time.monotonic):

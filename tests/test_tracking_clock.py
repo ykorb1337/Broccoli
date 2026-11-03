@@ -3,10 +3,10 @@ import json
 import tempfile
 import unittest
 from unittest.mock import patch
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_tags import identity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_tags import identity
 
 
 class TagClockTests(unittest.TestCase):
@@ -106,7 +106,7 @@ class TagClockTests(unittest.TestCase):
             self.assertEqual(self.c.status()['status'],'stopped');self.assertEqual(self.c.status()['elapsed'],15)
             self.now+=10
     def test_queued_sleep_sample_after_wake_uses_native_event_time(self):
-        from hotturkey.tracking_recorder import TrackingRecorder
+        from broccoli.tracking_recorder import TrackingRecorder
         self.begin(stop_on_idle=True);self.advance(100)
         recorder=TrackingRecorder(self.t,clock=lambda:self.now,monotonic=lambda:100)
         recorder.record({'front':{},'idle':0,'sleeping':True,'at':self.start+20})

@@ -7,11 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.engine import Engine,password_hash
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.system_migration import migrate_database,snapshot_database
+from broccoli.authority import PolicyAuthority
+from broccoli.engine import Engine,password_hash
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.system_migration import migrate_database,snapshot_database
 from test_authority import account
 
 
@@ -23,7 +23,7 @@ class MigrationTests(unittest.TestCase):
         self.store.charge(self.engine.now(),self.block['id'],123);self.store.event(self.engine.now(),'alice','website','example.invalid',seconds=42)
         self.engine.runtime(self.engine.find(self.block['id'])).update(reward_credit=30,break_until=self.engine.now()+60)
         self.store.state['settings'].update(settings_password=password_hash('fixture-settings'),device_recovery_hash=password_hash('fixture-recovery'))
-        self.store.save();self.source=self.store.directory/'hotturkey.sqlite3'
+        self.store.save();self.source=self.store.directory/'broccoli.sqlite3'
     def tearDown(self):self.store.db.close();self.temp.cleanup()
     def migrate(self,**values):return migrate_database(self.source,self.destination,501,os.getuid(),'real-boot',account,**values)
     def test_private_migration_keeps_policy_credentials_statistics_charges_and_breaks(self):
@@ -39,7 +39,7 @@ class MigrationTests(unittest.TestCase):
         finally:migrated.db.close()
     def test_repeated_protected_copy_does_not_double_prefix_charges(self):
         self.migrate();second=self.root/'second'
-        migrate_database(self.destination/'hotturkey.sqlite3',second,501,os.getuid(),'real-boot',account)
+        migrate_database(self.destination/'broccoli.sqlite3',second,501,os.getuid(),'real-boot',account)
         migrated=Store(second)
         try:
             authority=PolicyAuthority(migrated,501,resolve_user=account,boot_id='real-boot')
@@ -48,7 +48,7 @@ class MigrationTests(unittest.TestCase):
         finally:migrated.db.close()
     def test_wrong_controller_fails_without_touching_source(self):
         self.migrate();second=self.root/'second'
-        with self.assertRaises(PolicyError):migrate_database(self.destination/'hotturkey.sqlite3',second,502,os.getuid(),'real-boot',account)
+        with self.assertRaises(PolicyError):migrate_database(self.destination/'broccoli.sqlite3',second,502,os.getuid(),'real-boot',account)
         self.assertFalse(second.exists());self.assertTrue(self.destination.exists())
     def test_timer_restart_and_device_schedule_locks_block_migration(self):
         block=self.engine.find(self.block['id'])
@@ -93,7 +93,7 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.migrate()
         self.assertEqual(self.store.used(self.block['id'],0),123)
     def test_failed_migration_cleans_staging_and_keeps_existing_destination(self):
-        with patch('hotturkey.system_migration.PolicyAuthority',side_effect=RuntimeError('fixture failure')):
+        with patch('broccoli.system_migration.PolicyAuthority',side_effect=RuntimeError('fixture failure')):
             with self.assertRaises(RuntimeError):self.migrate()
         self.assertFalse(self.destination.exists())
         self.destination.mkdir();(self.destination/'keep').write_text('keep')

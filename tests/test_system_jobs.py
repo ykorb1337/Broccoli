@@ -8,9 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from hotturkey import system_jobs as jobs
-from hotturkey.system_package import DAEMON,LABEL
-from hotturkey.session_launch import SESSION_PLIST
+from broccoli import system_jobs as jobs
+from broccoli.system_package import DAEMON,LABEL
+from broccoli.session_launch import SESSION_PLIST
 
 
 class Runner:

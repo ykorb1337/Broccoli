@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
+from broccoli.server import Service
 
 
 def main():

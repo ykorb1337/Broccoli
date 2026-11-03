@@ -3,8 +3,8 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
-from hotturkey.server import Service
-from hotturkey.tracking import day_bounds
+from broccoli.server import Service
+from broccoli.tracking import day_bounds
 
 spec=importlib.util.spec_from_file_location('preview_today',Path(__file__).resolve().parent.parent/'scripts/preview_today.py')
 preview=importlib.util.module_from_spec(spec);spec.loader.exec_module(preview)

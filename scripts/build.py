@@ -68,11 +68,13 @@ def main():
     shutil.copy2(BUILD/"HotTurkey",app/"MacOS/HotTurkey")
     project=resources/"project"
     project.mkdir(exist_ok=True)
+    legacy_package=project/'hotturkey'
+    if legacy_package.exists():shutil.rmtree(legacy_package)
     for name in ['README.md','LICENSE']:
         if (ROOT/name).is_file():shutil.copy2(ROOT/name,project/name)
-    for folder in ["hotturkey","web","extension","scripts","docs"]:
+    for folder in ["broccoli","web","extension","scripts","docs"]:
         shutil.copytree(ROOT/folder,project/folder,dirs_exist_ok=True,ignore=shutil.ignore_patterns("__pycache__","*.pyc"))
-    (project/'hotturkey/uninstall.py').unlink(missing_ok=True)
+    (project/'broccoli/uninstall.py').unlink(missing_ok=True)
     (project/"build").mkdir(exist_ok=True)
     shutil.copy2(BUILD/"HotTurkeyAgent",project/"build/HotTurkeyAgent")
     shutil.copy2(BUILD/"HotTurkeyPeerCheck",project/"build/HotTurkeyPeerCheck")
@@ -101,7 +103,7 @@ def main():
             with path.open('rb') as stream:magic=stream.read(4)
             if magic in {b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca'}:
                 sign(path,quiet=True)
-    info={"CFBundleName":"Broccoli","CFBundleDisplayName":"Broccoli","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"34","CFBundleShortVersionString":"0.7.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"Broccoli uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
+    info={"CFBundleName":"Broccoli","CFBundleDisplayName":"Broccoli","CFBundleIdentifier":"local.hotturkey.desktop","CFBundleVersion":"35","CFBundleShortVersionString":"0.7.0","CFBundleExecutable":"HotTurkey","CFBundlePackageType":"APPL","LSMinimumSystemVersion":"12.0","NSHighResolutionCapable":True,"NSAppleEventsUsageDescription":"Broccoli uses device rules to log out or shut down your Mac when you configure them.","NSAppTransportSecurity":{"NSAllowsLocalNetworking":True}}
     info['CFBundleIconFile']='Broccoli.icns'
     (app/"Info.plist").write_bytes(plistlib.dumps(info))
     from build_distribution import build_uninstaller,distribution

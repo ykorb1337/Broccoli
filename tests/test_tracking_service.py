@@ -4,8 +4,8 @@ import threading
 import unittest
 import urllib.request
 import urllib.error
-from hotturkey.server import Service
-from hotturkey.tracking import day_bounds
+from broccoli.server import Service
+from broccoli.tracking import day_bounds
 
 class TrackingServiceTests(unittest.TestCase):
     def setUp(self):
@@ -25,7 +25,7 @@ class TrackingServiceTests(unittest.TestCase):
         code,value=self.request('tracking/day?day=2026-10-28');self.assertEqual(code,200);self.assertEqual(value['summary'][0]['seconds'],60)
         self.assertEqual(self.request('state')[1]['tracking']['version'],1)
     def test_website_icons_route_local_and_authenticated(self):
-        from hotturkey.website_icons import WebsiteIcons
+        from broccoli.website_icons import WebsiteIcons
         self.s.website_icons=WebsiteIcons([])
         self.assertEqual(self.request('tracking/website-icons',{'targets':['example.org']},token=False)[0],401)
         code,value=self.request('tracking/website-icons',{'targets':['example.org']})
@@ -34,7 +34,7 @@ class TrackingServiceTests(unittest.TestCase):
 
     def test_browser_native_host_can_fill_a_requested_icon_without_policy_changes(self):
         import base64
-        from hotturkey.website_icons import WebsiteIcons
+        from broccoli.website_icons import WebsiteIcons
         image='data:image/png;base64,'+base64.b64encode(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')).decode()
         self.s.website_icons=WebsiteIcons([],directory=self.temp.name)
         before=json.dumps(self.s.store.state,sort_keys=True)
@@ -198,7 +198,7 @@ class TrackingServiceTests(unittest.TestCase):
         self.assertEqual(self.request('tracking/export',{'since':self.start,'until':self.end,'definition':{},'format':'invalid'})[0],400)
     def test_tag_library_real_http_hierarchy_rename_and_delete(self):
         import time
-        from hotturkey.tracking_tags import identity
+        from broccoli.tracking_tags import identity
         block=self.s.engine.save_block({'name':'Locked scope fixture','enabled':True,'websites':['scope.invalid']})
         self.s.engine.set_lock(block['id'],{'type':'timer','until':time.time()+3600});self.s.store.charge(self.start,block['id'],17)
         before=json.dumps(self.s.store.state,sort_keys=True)

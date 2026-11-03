@@ -10,9 +10,9 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.setup import Setup
-from hotturkey.store import Store
-from hotturkey.engine import Engine
+from broccoli.setup import Setup
+from broccoli.store import Store
+from broccoli.engine import Engine
 
 def main():
     prefix='local.broccoli.setup.qa.'+uuid.uuid4().hex
@@ -42,7 +42,7 @@ def main():
             locked=engine.save_block({'name':'Unrelated locked rule','enabled':True,'websites':['example.invalid']});engine.set_lock(locked['id'],{'type':'timer','until':engine.now()+600})
             before=store.db.execute('SELECT value FROM state').fetchone()[0]
             result=setup.uninstall(root/'Downloaded Tool.app')
-            assert result['data_preserved'] and not setup.app.exists() and (setup.data/'hotturkey.sqlite3').exists()
+            assert result['data_preserved'] and not setup.app.exists() and (setup.data/'broccoli.sqlite3').exists()
             assert not setup.loaded(setup.service) and not setup.loaded(setup.desktop)
             assert store.db.execute('SELECT value FROM state').fetchone()[0]==before
             proof={'real_disposable_jobs_stopped':True,'blocked_tool_left_jobs_running':True,'unrelated_lock_did_not_trap_user':True,'policy_and_data_preserved':True,'real_installation_modified':False,'device_actions_run':False}

@@ -7,15 +7,15 @@ from pathlib import Path
 from unittest.mock import patch
 import contextlib
 
-from hotturkey import authority_server as production
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer,PolicyRPC
-from hotturkey.installation_gate import InstallationGate
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.system_enforcement import SystemDecisions
-from hotturkey.trusted_sessions import TrustedSessions
+from broccoli import authority_server as production
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer,PolicyRPC
+from broccoli.installation_gate import InstallationGate
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.system_enforcement import SystemDecisions
+from broccoli.trusted_sessions import TrustedSessions
 from test_authority import Clock,account
 
 
@@ -109,7 +109,7 @@ class GateTests(unittest.TestCase):
         self.write('committed');self.assertEqual(decisions.consume(sample),{'kill':[]})
         self.assertEqual(decisions.gate.status(501)['grace_remaining'],30)
     def test_production_startup_does_not_implicitly_migrate_legacy_data(self):
-        install=self.root/'program';package=install/'project/hotturkey';package.mkdir(parents=True)
+        install=self.root/'program';package=install/'project/broccoli';package.mkdir(parents=True)
         (install/'payload.json').write_text('{"fixture":true}')
         config=install/'authority.json';config.write_text(json.dumps({'version':3,'controller_uid':501,
             'requirements':{role:'cdhash H"'+char*40+'"' for role,char in [('client','a'),('session','b'),('browser','c')]}}))
@@ -120,8 +120,8 @@ class GateTests(unittest.TestCase):
             stack.enter_context(patch.object(production.os,'geteuid',return_value=0))
             stack.enter_context(patch.object(production,'trusted_directory',side_effect=Path))
             stack.enter_context(patch.object(production,'trusted_path',side_effect=Path))
-            stack.enter_context(patch('hotturkey.installation_gate.InstallationGate'))
-            stack.enter_context(patch('hotturkey.service_lease.ServiceLease'))
+            stack.enter_context(patch('broccoli.installation_gate.InstallationGate'))
+            stack.enter_context(patch('broccoli.service_lease.ServiceLease'))
             migrate=stack.enter_context(patch.object(production,'PolicyAuthority',side_effect=AssertionError('Implicit migration')))
             with self.assertRaisesRegex(ValueError,'must be migrated'):production.production_server()
             migrate.assert_not_called()

@@ -1,7 +1,7 @@
 import copy,json,tempfile,unittest
-from hotturkey.tracking_day import display_runs
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.store import Store
+from broccoli.tracking_day import display_runs
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.store import Store
 
 
 class DisplayRunTests(unittest.TestCase):

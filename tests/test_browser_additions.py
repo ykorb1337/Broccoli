@@ -1,6 +1,6 @@
 import unittest
-from hotturkey.browser_additions import site_target
-from hotturkey.model import PolicyError,matches
+from broccoli.browser_additions import site_target
+from broccoli.model import PolicyError,matches
 
 class BrowserAdditionTargets(unittest.TestCase):
     def test_domain_has_no_private_url_components(self):

@@ -5,12 +5,12 @@ import tempfile
 import time
 import unittest
 
-from hotturkey.engine import Engine
-from hotturkey.model import PolicyError
-from hotturkey.server import Service
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_recorder import TrackingRecorder
+from broccoli.engine import Engine
+from broccoli.model import PolicyError
+from broccoli.server import Service
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_recorder import TrackingRecorder
 
 
 class TrackingBoundaryTests(unittest.TestCase):
@@ -78,7 +78,7 @@ class TrackingBoundaryTests(unittest.TestCase):
         now=[self.start];e=Engine(self.store,wall=lambda:now[0],monotonic=lambda:now[0])
         block=e.save_block({'name':'Quota','enabled':True,'websites':['example.com'],'break':{'type':'allowance','minutes':1}})
         e.statistics_filter=lambda data:1/0
-        with self.assertLogs('hotturkey',level='ERROR'):
+        with self.assertLogs('broccoli',level='ERROR'):
             e.usage({'url':'https://example.com','active':True},'fixture');now[0]+=5;e.usage({'url':'https://example.com','active':True},'fixture')
         self.assertEqual(self.store.used(block['id'],0),5)
         e.save_block({'name':'Block','enabled':True,'websites':['blocked.invalid']})
@@ -90,7 +90,7 @@ class StatisticsFailureIsolationTests(unittest.TestCase):
     def test_corrupt_sidecar_preserves_policy_and_recovers_without_deleting_file(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'tracking.sqlite3';original=b'not a sqlite database';path.write_bytes(original)
-            with self.assertLogs('hotturkey',level='ERROR'):service=Service(directory,enforce=False)
+            with self.assertLogs('broccoli',level='ERROR'):service=Service(directory,enforce=False)
             try:
                 self.assertIsNone(service.tracking);self.assertEqual(path.read_bytes(),original)
                 block=service.engine.save_block({'name':'Still blocks','enabled':True,'websites':['example.com']})

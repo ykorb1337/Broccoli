@@ -1,7 +1,7 @@
 import datetime as dt,tempfile,unittest
-from hotturkey.store import Store
-from hotturkey.engine import Engine
-from hotturkey.sleep_notices import sleep_notice
+from broccoli.store import Store
+from broccoli.engine import Engine
+from broccoli.sleep_notices import sleep_notice
 
 class SleepNoticeTests(unittest.TestCase):
  def setUp(self):

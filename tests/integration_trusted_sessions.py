@@ -13,12 +13,12 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer
-from hotturkey.ipc import peer_identity,receive
-from hotturkey.store import Store
-from hotturkey.system_enforcement import SystemExecution
-from hotturkey.trusted_sessions import TrustedSessions,audit_session
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer
+from broccoli.ipc import peer_identity,receive
+from broccoli.store import Store
+from broccoli.system_enforcement import SystemExecution
+from broccoli.trusted_sessions import TrustedSessions,audit_session
 
 
 def main():

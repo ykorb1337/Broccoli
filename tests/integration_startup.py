@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.store import Store
+from broccoli.store import Store
 
 RECORD=ROOT/'build/startup-fixture.json'
 
@@ -42,7 +42,7 @@ def prepare(reuse=None):
     marker.unlink(missing_ok=True)
     log=data/'desktop.log'
     offset=log.stat().st_size if log.exists() else 0
-    server=app/'Contents/Resources/project/hotturkey/server.py'
+    server=app/'Contents/Resources/project/broccoli/server.py'
     prefix=('import json as _qa_json, os as _qa_os, time as _qa_time\n'
             'from pathlib import Path as _QAPath\n'
             '_qa_file=_QAPath(_qa_os.environ["HOTTURKEY_DATA"])/"startup-delay.json"\n'

@@ -52,7 +52,10 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
         if let override = Bundle.main.object(forInfoDictionaryKey:"HotTurkeyDataDirectory") as? String {
             dataDirectory = URL(fileURLWithPath:override)
         } else {
-            dataDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/HotTurkey")
+            let support = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+            let current = support.appendingPathComponent("Broccoli")
+            dataDirectory = (FileManager.default.fileExists(atPath:current.appendingPathComponent("broccoli.sqlite3").path) || FileManager.default.fileExists(atPath:current.appendingPathComponent("hotturkey.sqlite3").path))
+                ? current : support.appendingPathComponent("HotTurkey")
         }
         systemMode = CommandLine.arguments.contains("--system") || Bundle.main.object(forInfoDictionaryKey:"HotTurkeySystemMode") as? Bool == true
         if systemMode { dataDirectory = dataDirectory.appendingPathComponent("system-desktop") }
@@ -158,7 +161,7 @@ final class Delegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKU
             if python.isEmpty { showError("应用运行时配置缺失，请重新安装 Broccoli。"); return }
             process.executableURL = python.hasPrefix("/") ? URL(fileURLWithPath:python) : Bundle.main.resourceURL!.appendingPathComponent(python)
             process.currentDirectoryURL = base
-            process.arguments = ["-E","-s","-B","-m","hotturkey.server"] + (systemMode ? ["--system"] : ["--enforce"])
+            process.arguments = ["-E","-s","-B","-m","broccoli.server"] + (systemMode ? ["--system"] : ["--enforce"])
             let serviceDirectory = systemMode ? dataDirectory.deletingLastPathComponent() : dataDirectory!
             process.environment = ProcessInfo.processInfo.environment.merging(["HOTTURKEY_DATA":serviceDirectory.path,"PYTHONDONTWRITEBYTECODE":"1"]) { _,new in new }
             do { try process.run(); service = process } catch { showError("无法启动后台：\(error)"); return }

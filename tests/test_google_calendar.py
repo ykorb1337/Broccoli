@@ -6,7 +6,7 @@ import time
 import unittest
 import urllib.parse as url
 from pathlib import Path
-from hotturkey.google_calendar import GoogleCalendar,CalendarHTTPError,PolicyError,SCOPES,dispatch,API,moment
+from broccoli.google_calendar import GoogleCalendar,CalendarHTTPError,PolicyError,SCOPES,dispatch,API,moment
 
 CONFIG={'installed':{'client_id':'12345678-fixture.apps.googleusercontent.com','client_secret':'local-fixture-secret'}}
 class Vault:
@@ -31,7 +31,7 @@ class CalendarTests(unittest.TestCase):
   for value in [None,{}, {'web':CONFIG['installed']},{'installed':{'client_id':'https://example.com'}}]:
    with self.assertRaises(PolicyError):self.client.configure(value)
   status=self.client.configure(CONFIG);self.assertTrue(status['configured']);self.assertNotIn('client_secret',status)
-  self.assertEqual(self.client.config_path.stat().st_mode&0o777,0o600);self.assertFalse((Path(self.tmp.name)/'hotturkey.sqlite3').exists())
+  self.assertEqual(self.client.config_path.stat().st_mode&0o777,0o600);self.assertFalse((Path(self.tmp.name)/'broccoli.sqlite3').exists())
  def test_pkce_state_one_use_callback_and_secret_not_public(self):
   self.client.configure(CONFIG);link=self.client.begin()['url'];params=url.parse_qs(url.urlsplit(link).query)
   self.assertEqual(params['code_challenge_method'],['S256']);self.assertNotIn('client_secret',params);self.assertEqual(set(params['scope'][0].split()),set(SCOPES))
@@ -142,7 +142,7 @@ class CalendarTests(unittest.TestCase):
 class CalendarServiceTests(unittest.TestCase):
  def setUp(self):
   import threading
-  from hotturkey.server import Service
+  from broccoli.server import Service
   self.tmp=tempfile.TemporaryDirectory();self.service=Service(self.tmp.name)
   self.client=GoogleCalendar(Path(self.tmp.name),request=lambda *a,**k:{},vault=Vault());self.service.google_calendar=self.client
   self.thread=threading.Thread(target=self.service.http.serve_forever);self.thread.start()
@@ -184,7 +184,7 @@ class CalendarServiceTests(unittest.TestCase):
   from scripts.preview_today import copy_today
   # The existing real-statistics copy path ignores the independent calendar directory.
   source=Path(self.tmp.name);self.client.configure(CONFIG);target=tempfile.TemporaryDirectory()
-  from hotturkey.server import Service
+  from broccoli.server import Service
   preview=Service(target.name)
   try:
    copy_today(source,preview,'2026-11-01');self.assertFalse((Path(target.name)/'google-calendar').exists());self.assertEqual(preview.store.state['blocks'],[])
@@ -193,7 +193,7 @@ class CalendarServiceTests(unittest.TestCase):
 
 class CalendarSnapshotTests(unittest.TestCase):
  def test_editable_snapshot_uses_production_validation_but_cannot_reach_google(self):
-  from hotturkey.google_calendar_preview import CalendarSnapshot
+  from broccoli.google_calendar_preview import CalendarSnapshot
   event={'id':'one','etag':'v1','summary':'Local copy','start':{'dateTime':'2026-11-02T09:00:00-05:00'},'end':{'dateTime':'2026-11-02T10:00:00-05:00'},'attendees':[{'self':True,'email':'private@example.com','responseStatus':'accepted'},{'email':'guest@example.com'}]}
   cache={json.dumps(['a','start','end']):{'items':[event],'timeZone':'America/New_York','synced_at':1}};before=copy.deepcopy(cache)
   draft=CalendarSnapshot(cache,[{'id':'a','accessRole':'owner','primary':True}],editable=True)
@@ -204,7 +204,7 @@ class CalendarSnapshotTests(unittest.TestCase):
    with self.assertRaises(PolicyError):dispatch(draft,path,'POST',{}, {})
   with self.assertRaises(PolicyError):draft.call('GET','https://www.googleapis.com/calendar/v3/calendars')
  def test_snapshot_is_read_only_without_credentials(self):
-  from hotturkey.google_calendar_preview import CalendarSnapshot
+  from broccoli.google_calendar_preview import CalendarSnapshot
   event={'id':'one','summary':'Real source shape','start':{'date':'2026-11-01'},'end':{'date':'2026-11-02'},'attendees':[{'email':'private@example.com','self':True,'responseStatus':'declined'}]}
   cache={json.dumps(['a','start','end']):{'items':[event],'timeZone':'America/New_York','synced_at':1}}
   metadata=[{'id':'a','labels':[{'id':'lecture','name':'Lectures','backgroundColor':'#4285f4'}]}]
@@ -224,7 +224,7 @@ class CalendarLabelTests(unittest.TestCase):
   result=self.client.labels('a');self.assertEqual(result['items'],[{'id':'ddl','name':'Deadlines','backgroundColor':'#d50000'}]);self.assertNotIn('ignored',result['items'][0])
   self.client.labels('a');self.assertEqual(len(self.calls),1)
  def test_partial_label_consent_keeps_base_calendar_access(self):
-  from hotturkey.google_calendar import BASE_SCOPES
+  from broccoli.google_calendar import BASE_SCOPES
   self.client.configure(CONFIG);self.client.begin();state=self.client.pending['state'];self.responses=[{'access_token':'access','refresh_token':'refresh','scope':' '.join(BASE_SCOPES)}]
   self.client.complete({'state':[state],'code':['value']});self.assertTrue(self.client.status()['connected']);self.assertFalse(self.client.status()['label_permission'])
  def test_missing_label_permission_is_nonfatal(self):

@@ -19,7 +19,7 @@ from .server import ROOT, Service
 from .system_client import SystemClient
 from .documents import MAX_DOCUMENT
 
-LOG=logging.getLogger('hotturkey')
+LOG=logging.getLogger('broccoli')
 GET={'state','categories','export','statistics','statistics/export','users','apps'}
 POST={'auth','import','settings','statistics/clear','check','device/recover','device/configure-recovery',
       *('blocks/'+name for name in ['save','add-targets','reset-pomodoro','skip-break','delete','toggle','lock','unlock','break','duplicate'])}

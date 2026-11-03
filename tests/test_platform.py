@@ -10,8 +10,8 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from hotturkey.platform_macos import configure_ui_login
-from hotturkey.platform_macos import native_samples, native_command, stop_native
+from broccoli.platform_macos import configure_ui_login
+from broccoli.platform_macos import native_samples, native_command, stop_native
 
 class NativeTransportTests(unittest.TestCase):
     def setUp(self):
@@ -34,7 +34,7 @@ class NativeTransportTests(unittest.TestCase):
 
     def test_trickling_partial_sample_still_times_out(self):
         process=self.helper("import os,time\nfor _ in range(200):\n os.write(1,b'{'); time.sleep(.01)")
-        with patch('hotturkey.platform_macos.NATIVE_SAMPLE_TIMEOUT',.2):
+        with patch('broccoli.platform_macos.NATIVE_SAMPLE_TIMEOUT',.2):
             started=time.monotonic()
             with self.assertRaises(TimeoutError):next(native_samples(process,self.stop,lambda:None))
             self.assertLess(time.monotonic()-started,1)
@@ -47,12 +47,12 @@ class NativeTransportTests(unittest.TestCase):
 
     def test_oversized_unterminated_frame_is_rejected(self):
         process=self.helper("import os,time; os.write(1,b'x'*200); time.sleep(5)")
-        with patch('hotturkey.platform_macos.MAX_NATIVE_SAMPLE',100):
+        with patch('broccoli.platform_macos.MAX_NATIVE_SAMPLE',100):
             with self.assertRaisesRegex(RuntimeError,'size limit'):next(native_samples(process,self.stop,lambda:None))
 
     def test_full_command_pipe_times_out(self):
         process=self.helper('import time; time.sleep(5)')
-        with patch('hotturkey.platform_macos.NATIVE_COMMAND_TIMEOUT',.2):
+        with patch('broccoli.platform_macos.NATIVE_COMMAND_TIMEOUT',.2):
             with self.assertRaises(TimeoutError):native_command(process,self.stop,{'payload':'x'*2_000_000})
 
     def test_stalled_sample_keeps_policy_clock_running(self):
@@ -61,7 +61,7 @@ class NativeTransportTests(unittest.TestCase):
         def tick():
             ticks.append(time.monotonic())
             self.stop.set()
-        with patch('hotturkey.platform_macos.NATIVE_SAMPLE_TIMEOUT',2):
+        with patch('broccoli.platform_macos.NATIVE_SAMPLE_TIMEOUT',2):
             self.assertEqual(list(native_samples(process,self.stop,tick)),[])
         self.assertEqual(len(ticks),1)
 
@@ -88,7 +88,7 @@ class LoginTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             home=Path(temp);app=home/'Applications/Broccoli.app';app.mkdir(parents=True)
             directory=home/'data';directory.mkdir();(directory/'installation.json').write_text(json.dumps({'app_path':str(app)}))
-            with patch('hotturkey.platform_macos.Path.home',return_value=home),patch('hotturkey.platform_macos.subprocess.run') as run:
+            with patch('broccoli.platform_macos.Path.home',return_value=home),patch('broccoli.platform_macos.subprocess.run') as run:
                 configure_ui_login(True,directory)
                 path=home/'Library/LaunchAgents/local.hotturkey.desktop.plist'
                 value=plistlib.loads(path.read_bytes())

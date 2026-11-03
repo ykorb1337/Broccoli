@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from hotturkey.engine import Engine
-from hotturkey.store import Store
-from hotturkey.platform_macos import enforce_loop
+from broccoli.engine import Engine
+from broccoli.store import Store
+from broccoli.platform_macos import enforce_loop
 from test_authority import Clock
 
 
@@ -38,7 +38,7 @@ class RecoveryDeliveryTests(unittest.TestCase):
                 # The transport is mocked. Do not depend on a previous native build.
                 root=Path(directory)/'project';(root/'build').mkdir(parents=True)
                 (root/'build/HotTurkeyAgent').touch()
-                with patch('hotturkey.platform_macos.ROOT',root),patch('hotturkey.platform_macos.subprocess.Popen',return_value=object()),patch('hotturkey.platform_macos.native_samples',side_effect=lambda *args:samples()),patch('hotturkey.platform_macos.native_command',side_effect=lambda p,s,c:commands.append(c) or True),patch('hotturkey.platform_macos.stop_native'):
+                with patch('broccoli.platform_macos.ROOT',root),patch('broccoli.platform_macos.subprocess.Popen',return_value=object()),patch('broccoli.platform_macos.native_samples',side_effect=lambda *args:samples()),patch('broccoli.platform_macos.native_command',side_effect=lambda p,s,c:commands.append(c) or True),patch('broccoli.platform_macos.stop_native'):
                     enforce_loop(service)
                 self.assertEqual(store.state['blocks'],before,'readiness cannot edit locks or rules')
                 return commands,service.device_recovery_protocol

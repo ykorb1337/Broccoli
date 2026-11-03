@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey.system_transaction import FileTransaction,installation_lock
+from broccoli.system_transaction import FileTransaction,installation_lock
 
 
 class TransactionTests(unittest.TestCase):
@@ -69,7 +69,7 @@ class TransactionTests(unittest.TestCase):
         self.assertEqual(next(self.root.glob('.hotturkey-backup-*')).read_text(),'old')
     def test_unsupported_atomic_exchange_has_no_unsafe_rename_fallback(self):
         self.targets['program'].write_text('old');transaction=self.transaction()
-        with patch('hotturkey.system_transaction.atomic_exchange',side_effect=OSError('unsupported')):
+        with patch('broccoli.system_transaction.atomic_exchange',side_effect=OSError('unsupported')):
             with self.assertRaises(OSError):transaction.publish('program',self.stage('new'))
         self.assertEqual(self.targets['program'].read_text(),'old');transaction.rollback()
         self.assertEqual(self.targets['program'].read_text(),'old')

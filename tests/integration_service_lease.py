@@ -13,11 +13,11 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.authority import PolicyAuthority
-from hotturkey.server import Service
-from hotturkey.service_lease import ServiceLease
-from hotturkey.store import Store
-from hotturkey.system_enforcement import SystemExecution
+from broccoli.authority import PolicyAuthority
+from broccoli.server import Service
+from broccoli.service_lease import ServiceLease
+from broccoli.store import Store
+from broccoli.system_enforcement import SystemExecution
 
 
 def main():

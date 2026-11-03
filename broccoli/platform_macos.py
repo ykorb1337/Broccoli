@@ -12,7 +12,7 @@ from pathlib import Path
 from .model import PolicyError
 from .sleep_notices import sleep_notice
 
-LOG=logging.getLogger("hotturkey")
+LOG=logging.getLogger("broccoli")
 ROOT=Path(__file__).resolve().parent.parent
 NATIVE_SAMPLE_TIMEOUT=10
 NATIVE_COMMAND_TIMEOUT=3

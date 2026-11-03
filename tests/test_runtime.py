@@ -11,9 +11,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from hotturkey.runtime import application_python
-from hotturkey.store import Store
-from hotturkey.engine import Engine
+from broccoli.runtime import application_python
+from broccoli.store import Store
+from broccoli.engine import Engine
 from scripts.prepare_runtime import checked_members,verified_download,target_triple
 from scripts import install as installer
 
@@ -67,7 +67,7 @@ class InstallTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.project=self.root/'project';(self.project/'build').mkdir(parents=True)
-        for folder in ['hotturkey','web','extension']:(self.project/folder).mkdir();(self.project/folder/'new.txt').write_text(folder)
+        for folder in ['broccoli','web','extension']:(self.project/folder).mkdir();(self.project/folder/'new.txt').write_text(folder)
         (self.project/'build/HotTurkeyAgent').write_text('fixture agent')
         self.source=self.app(self.root/'Source.app','new')
         self.target=self.root/'profile/data';self.app_target=self.root/'apps/Broccoli.app';self.launch=self.root/'profile/launch/service.plist'
@@ -145,7 +145,7 @@ class InstallTests(unittest.TestCase):
 
     def test_host_migration_only_restarts_owned_module_in_replaced_directory(self):
         old=self.root/'old-runtime';old.mkdir();uid=os.getuid()
-        processes=f'41 {uid} /python -m hotturkey.native_host\n42 {uid} /python -m hotturkey.native_host\n43 {uid+1} /python -m hotturkey.native_host\n44 {uid} /python -m hotturkey.native_host_other\n'
+        processes=f'41 {uid} /python -m broccoli.native_host\n42 {uid} /python -m broccoli.native_host\n43 {uid+1} /python -m broccoli.native_host\n44 {uid} /python -m broccoli.native_host_other\n'
         def output(command,**kwargs):
             if command[0]=='/bin/ps':return processes
             return 'p'+command[3]+'\nn'+str(old if command[3]=='41' else self.root/'other')+'\n'

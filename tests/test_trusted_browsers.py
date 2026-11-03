@@ -3,13 +3,13 @@ import dataclasses
 import tempfile
 import unittest
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import PolicyRPC
-from hotturkey.engine import password_hash
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.trusted_browsers import TrustedBrowsers
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import PolicyRPC
+from broccoli.engine import password_hash
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.trusted_browsers import TrustedBrowsers
 from test_authority import Clock,account
 from test_system_enforcement import process
 

@@ -79,7 +79,7 @@ def daemon_plan():
 
 
 def authority_entry():
-    return 'import runpy, sys\nsys.path.insert(0, '+repr(str(INSTALL/'project'))+')\nrunpy.run_module("hotturkey.authority_server", run_name="__main__")\n'
+    return 'import runpy, sys\nsys.path.insert(0, '+repr(str(INSTALL/'project'))+')\nrunpy.run_module("broccoli.authority_server", run_name="__main__")\n'
 
 
 def validate_bindings(bindings):
@@ -137,7 +137,7 @@ def prepare_payload(app,destination,controller_uid,bindings):
         subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(installed_app)],check=True,capture_output=True,timeout=60)
         verify_signature(installed_app)
         source=installed_app/'Contents/Resources/project'
-        shutil.copytree(source/'hotturkey',destination/'project/hotturkey',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+        shutil.copytree(source/'broccoli',destination/'project/broccoli',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         for name in HELPERS:shutil.copy2(source/'build'/name,destination/name)
         requirements={role:native_requirement(destination/'HotTurkeyPeerCheck',destination/name) for role,name in ROLES.items()}
         if len(set(requirements.values()))!=3:raise ValueError('原生助手角色必须具有不同签名')
@@ -173,8 +173,8 @@ def verify_payload(directory):
             or 'HotTurkeyDataDirectory' in metadata or metadata.get('CFBundleShortVersionString')!=value['app_version']):raise ValueError('系统应用元数据无效')
     canonical=app/'Contents/Resources/project'
     if {path.name for path in (canonical/'build').iterdir()}!=APP_HELPERS:raise ValueError('正式应用包含测试助手或未知执行文件')
-    if inventory(directory/'project/hotturkey')!=inventory(canonical/'hotturkey'):raise ValueError('策略源文件与签名应用不一致')
-    if {path.name for path in (directory/'project').iterdir()}!={'hotturkey'}:raise ValueError('策略目录包含额外代码')
+    if inventory(directory/'project/broccoli')!=inventory(canonical/'broccoli'):raise ValueError('策略源文件与签名应用不一致')
+    if {path.name for path in (directory/'project').iterdir()}!={'broccoli'}:raise ValueError('策略目录包含额外代码')
     if (directory/'authority-entry.py').read_text()!=authority_entry():raise ValueError('系统启动入口不是固定程序')
     for name in HELPERS:
         if digest(directory/name)!=digest(canonical/'build'/name):raise ValueError('原生助手与签名应用不一致')

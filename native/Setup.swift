@@ -68,7 +68,7 @@ final class SetupDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func request(_ action:String, completion:@escaping([String:Any])->Void) {
         guard worker==nil else{return};let (python,project,source)=paths();let process=Process();let output=Pipe();let input=Pipe()
-        process.executableURL=python;process.arguments=["-E","-s","-B","-m","hotturkey.setup",action,"--source",source.path];process.currentDirectoryURL=project
+        process.executableURL=python;process.arguments=["-E","-s","-B","-m","broccoli.setup",action,"--source",source.path];process.currentDirectoryURL=project
         process.environment=ProcessInfo.processInfo.environment.merging(["PATH":"/usr/bin:/bin:/usr/sbin:/sbin"]){_,new in new}
         process.standardOutput=output;process.standardError=FileHandle.nullDevice;process.standardInput=input
         let payload=(try? JSONSerialization.data(withJSONObject:["password":password.stringValue])) ?? Data("{}".utf8)

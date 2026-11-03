@@ -16,13 +16,13 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.system_transaction import FileTransaction,installation_lock
+from broccoli.system_transaction import FileTransaction,installation_lock
 
 CHILD=r'''
 import os,sys
 from pathlib import Path
-from hotturkey.system_transaction import FileTransaction,installation_lock
-import hotturkey.system_transaction as transaction_module
+from broccoli.system_transaction import FileTransaction,installation_lock
+import broccoli.system_transaction as transaction_module
 root=Path(sys.argv[1]);mode=sys.argv[2];staged=Path(sys.argv[3]);journal=root/'journal/transaction.json';target=root/'program'
 def checkpoint():
     print('CHECKPOINT',flush=True);sys.stdin.readline()

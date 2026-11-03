@@ -13,21 +13,21 @@ mode=sys.argv[1];configuration=json.loads(Path(sys.argv[2]).read_text())
 sys.path.insert(0,str(ROOT if mode=='legacy' else Path(configuration['program'])/'project'))
 
 if mode=='legacy':
-    from hotturkey.server import Service
+    from broccoli.server import Service
     service=Service(Path(configuration['legacy']),enforce=True)
     try:service.run()
     finally:service.store.db.close()
 elif mode=='authority':
-    from hotturkey.authority import PolicyAuthority
-    from hotturkey.authority_server import AuthorityServer
-    from hotturkey.installation_gate import InstallationGate
-    from hotturkey.ipc import peer_identity
-    from hotturkey.platform_macos import boot_id
-    from hotturkey.service_lease import ServiceLease
-    from hotturkey.store import Store
-    from hotturkey.system_enforcement import SystemExecution
-    from hotturkey.system_package import digest
-    from hotturkey.trusted_sessions import TrustedSessions
+    from broccoli.authority import PolicyAuthority
+    from broccoli.authority_server import AuthorityServer
+    from broccoli.installation_gate import InstallationGate
+    from broccoli.ipc import peer_identity
+    from broccoli.platform_macos import boot_id
+    from broccoli.service_lease import ServiceLease
+    from broccoli.store import Store
+    from broccoli.system_enforcement import SystemExecution
+    from broccoli.system_package import digest
+    from broccoli.trusted_sessions import TrustedSessions
     uid=os.getuid();data=Path(configuration['database']);gate=InstallationGate(Path(configuration['marker']),uid,digest(Path(configuration['program'])/'payload.json'),owner_uid=uid,anchor=Path(configuration['root']))
     lease=ServiceLease(data/'service.lock');store=Store(data)
     try:

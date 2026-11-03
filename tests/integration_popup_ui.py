@@ -9,8 +9,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
-from hotturkey.engine import password_hash
+from broccoli.server import Service
+from broccoli.engine import password_hash
 
 
 def main():
@@ -53,7 +53,7 @@ def main():
                 if self.path!='/bridge':self.send_error(404);return
                 env={**os.environ,'HOTTURKEY_DATA':str(service.store.directory),'PYTHONDONTWRITEBYTECODE':'1'}
                 payload=json.dumps(data).encode()
-                result=subprocess.run([sys.executable,'-B','-m','hotturkey.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,cwd=ROOT,env=env,check=True,timeout=8)
+                result=subprocess.run([sys.executable,'-B','-m','broccoli.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,cwd=ROOT,env=env,check=True,timeout=8)
                 size=struct.unpack('<I',result.stdout[:4])[0];self.reply(json.loads(result.stdout[4:4+size]))
         bridge=r'''const hooks={},event=name=>({addListener(fn){hooks[name]=fn;}});
 const tab={id:7,url:'https://example.com/learn/a?private=not-saved#token',active:true,windowId:1};

@@ -19,22 +19,22 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(ROOT/'tests'))
 from integration_protected_driver import Jobs,legacy_ready
-from hotturkey.engine import Engine,password_hash
-from hotturkey.service_lease import ServiceLease
-from hotturkey.store import Store
-from hotturkey.system_driver import _Driver,_Layout,_approve
-from hotturkey.system_migration import snapshot_database
-from hotturkey.system_package import digest,prepare_payload
-from hotturkey.system_processes import KernelProcesses
-from hotturkey.system_jobs import _JobControl
+from broccoli.engine import Engine,password_hash
+from broccoli.service_lease import ServiceLease
+from broccoli.store import Store
+from broccoli.system_driver import _Driver,_Layout,_approve
+from broccoli.system_migration import snapshot_database
+from broccoli.system_package import digest,prepare_payload
+from broccoli.system_processes import KernelProcesses
+from broccoli.system_jobs import _JobControl
 
 CHILD=r'''
 import dataclasses,json,os,sys,subprocess
 from pathlib import Path
 root=Path(sys.argv[1]);sys.path.insert(0,str(root));sys.path.insert(0,str(root/'tests'))
 from integration_protected_driver import Jobs
-from hotturkey.system_driver import _Driver,_Layout,_Approval,_stage
-from hotturkey.system_cutover import CutoverCoordinator
+from broccoli.system_driver import _Driver,_Layout,_Approval,_stage
+from broccoli.system_cutover import CutoverCoordinator
 value=json.loads(sys.stdin.readline());layout=_Layout(**{key:(item if key=='owner_uid' else Path(item)) for key,item in value['layout'].items()})
 jobs=Jobs(layout,value['configuration'],Path(value['binary']));mode=value['mode']
 def checkpoint():
@@ -85,7 +85,7 @@ def main():
             store=Store(layout.legacy);engine=Engine(store);block=engine.save_block({'name':'Owned crash fixture','enabled':True,'applications':['binary:'+str(binary)]});ident=block['id']
             store.state['settings'].update(statistics=False,open_at_login=False,settings_password=password_hash('fixture password'));store.charge(time.time(),ident,123);store.save();store.db.close()
             with ServiceLease(layout.legacy/'.install.lock'):pass
-            (folder/'preflight').mkdir(mode=0o700);snapshot_database(layout.legacy/'hotturkey.sqlite3',folder/'preflight/hotturkey.sqlite3',uid)
+            (folder/'preflight').mkdir(mode=0o700);snapshot_database(layout.legacy/'broccoli.sqlite3',folder/'preflight/broccoli.sqlite3',uid)
             approval=_approve(layout,uid,expected,'fixture password')
             configuration={'root':str(case),'program':str(layout.program),'database':str(layout.database),'marker':str(layout.marker),'legacy':str(layout.legacy),'socket':str(case/'control.sock'),'file':str(folder/'fixture.json')}
             Path(configuration['file']).write_text(json.dumps(configuration));jobs=Jobs(layout,configuration,binary)

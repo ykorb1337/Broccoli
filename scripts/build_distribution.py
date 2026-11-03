@@ -40,12 +40,12 @@ def build_uninstaller(main):
     shutil.copytree(source/'python',resources/'python',symlinks=True)
     shutil.copytree(source/'ThirdParty',resources/'ThirdParty',symlinks=True)
     project=resources/'project';project.mkdir();(project/'scripts').mkdir()
-    shutil.copytree(ROOT/'hotturkey',project/'hotturkey',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+    shutil.copytree(ROOT/'broccoli',project/'broccoli',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     shutil.copy2(ROOT/'scripts/install.py',project/'scripts/install.py')
     sign(path);return path
 
 def validate_main(main):
-    if (main/'Contents/Resources/project/hotturkey/uninstall.py').exists() or any('uninstall' in p.name.lower() for p in main.rglob('*.app')):
+    if (main/'Contents/Resources/project/broccoli/uninstall.py').exists() or any('uninstall' in p.name.lower() for p in main.rglob('*.app')):
         raise ValueError('The main installer must not include the uninstaller')
     project=main/'Contents/Resources/project'
     for path in project.rglob('*'):

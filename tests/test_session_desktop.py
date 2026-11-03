@@ -4,12 +4,12 @@ import plistlib
 import tempfile
 import unittest
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.session_launch import session_launch_agent
-from hotturkey.store import Store
-from hotturkey.trusted_sessions import TrustedSessions
+from broccoli.authority import PolicyAuthority
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.session_launch import session_launch_agent
+from broccoli.store import Store
+from broccoli.trusted_sessions import TrustedSessions
 from test_authority import Clock,account
 from test_trusted_sessions import Inventory
 

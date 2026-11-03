@@ -16,15 +16,15 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.ipc import receive,send
-from hotturkey.system_package import prepare_payload,digest
+from broccoli.ipc import receive,send
+from broccoli.system_package import prepare_payload,digest
 from integration_system_cutover import Driver
 
 CHILD=r'''
 import json,os,socket,sys
 from pathlib import Path
-from hotturkey.ipc import receive,send
-from hotturkey.system_cutover import CutoverCoordinator
+from broccoli.ipc import receive,send
+from broccoli.system_cutover import CutoverCoordinator
 configuration=json.loads(sys.argv[1]);connection=socket.socket(fileno=int(sys.argv[2]))
 class RemoteDriver:
     def __getattr__(self,name):

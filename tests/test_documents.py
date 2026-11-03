@@ -7,12 +7,12 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from hotturkey import documents
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import PolicyRPC
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
+from broccoli import documents
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import PolicyRPC
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.store import Store
 from test_authority import Clock,account
 
 

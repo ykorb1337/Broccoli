@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey.ipc import ProtocolError, peer_identity, receive, send, trusted_path
+from broccoli.ipc import ProtocolError, peer_identity, receive, send, trusted_path
 
 
 class IPCTests(unittest.TestCase):
@@ -55,7 +55,7 @@ class IPCTests(unittest.TestCase):
             except OSError:pass
         thread=threading.Thread(target=trickle);thread.start()
         try:
-            with patch('hotturkey.ipc.FRAME_TIMEOUT',.15):
+            with patch('broccoli.ipc.FRAME_TIMEOUT',.15):
                 started=time.monotonic()
                 with self.assertRaises(TimeoutError):receive(self.right)
                 self.assertLess(time.monotonic()-started,.4)
@@ -63,7 +63,7 @@ class IPCTests(unittest.TestCase):
 
     def test_outbound_size_and_non_object_are_rejected(self):
         for value in [[],{'payload':'x'*1024}]:
-            with self.subTest(value=type(value)),patch('hotturkey.ipc.MAX_FRAME',100):
+            with self.subTest(value=type(value)),patch('broccoli.ipc.MAX_FRAME',100):
                 with self.assertRaises(ProtocolError):send(self.left,value)
 
     def test_workspace_file_is_not_a_trusted_root_executable(self):

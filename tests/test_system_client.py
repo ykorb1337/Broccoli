@@ -8,15 +8,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 
-from hotturkey import cli
-from hotturkey.model import PolicyError
-from hotturkey.system_client import SystemClient
+from broccoli import cli
+from broccoli.model import PolicyError
+from broccoli.system_client import SystemClient
 
 
 class SystemClientTests(unittest.TestCase):
     def test_production_uses_only_fixed_protected_native_client(self):
         client=SystemClient()
-        with patch('hotturkey.system_client.trusted_path',return_value='/protected/client') as trusted,patch('hotturkey.system_client.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=b'{"ok":true,"result":{"id":"x"}}')) as run:
+        with patch('broccoli.system_client.trusted_path',return_value='/protected/client') as trusted,patch('broccoli.system_client.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=b'{"ok":true,"result":{"id":"x"}}')) as run:
             self.assertEqual(client.api('blocks/add-targets',{'id':'x','websites':['example.invalid']}),{'id':'x'})
             self.assertEqual(run.call_args.args[0],['/protected/client']);self.assertTrue(trusted.called)
             payload=json.loads(run.call_args.kwargs['input']);self.assertEqual(payload['op'],'add-targets');self.assertNotIn('uid',payload)
@@ -29,42 +29,42 @@ class SystemClientTests(unittest.TestCase):
     def test_transport_failures_and_policy_errors_are_separate(self):
         client=SystemClient(command=['qa-client'])
         for result in [SimpleNamespace(returncode=1,stdout=b''),SimpleNamespace(returncode=0,stdout=b'not json'),SimpleNamespace(returncode=0,stdout=b'{"ok":false,"error":"locked"}')]:
-            with self.subTest(result=result),patch('hotturkey.system_client.subprocess.run',return_value=result),self.assertRaises(PolicyError):client.request('snapshot')
-        with patch('hotturkey.system_client.subprocess.run',side_effect=subprocess.TimeoutExpired('qa',1)),self.assertRaises(PolicyError):client.request('snapshot')
-        with patch('hotturkey.system_client.trusted_path',side_effect=FileNotFoundError()),self.assertRaises(PolicyError):SystemClient().request('snapshot')
+            with self.subTest(result=result),patch('broccoli.system_client.subprocess.run',return_value=result),self.assertRaises(PolicyError):client.request('snapshot')
+        with patch('broccoli.system_client.subprocess.run',side_effect=subprocess.TimeoutExpired('qa',1)),self.assertRaises(PolicyError):client.request('snapshot')
+        with patch('broccoli.system_client.trusted_path',side_effect=FileNotFoundError()),self.assertRaises(PolicyError):SystemClient().request('snapshot')
     def test_cli_system_mode_does_not_open_a_legacy_connection_or_database(self):
         client=Mock();client.api.return_value={'authenticated':True,'can_manage':True,'blocks':[]}
         output=io.StringIO()
-        with patch('sys.argv',['hotturkey','--system','status']),patch('hotturkey.system_client.SystemClient',return_value=client),patch('pathlib.Path.read_text',side_effect=AssertionError('Legacy connection was opened')),contextlib.redirect_stdout(output):cli.main()
+        with patch('sys.argv',['broccoli','--system','status']),patch('broccoli.system_client.SystemClient',return_value=client),patch('pathlib.Path.read_text',side_effect=AssertionError('Legacy connection was opened')),contextlib.redirect_stdout(output):cli.main()
         client.api.assert_called_once_with('state',None);self.assertEqual(json.loads(output.getvalue())['blocks'],[])
     def test_noncontroller_can_read_own_statistics_without_manager_password_prompt(self):
         client=Mock();client.api.side_effect=[{'authenticated':False,'can_manage':False,'blocks':[]},{'totals':{'seconds':5}}]
-        with patch('sys.argv',['hotturkey','--system','stats']),patch('hotturkey.system_client.SystemClient',return_value=client),patch('getpass.getpass',side_effect=AssertionError('Unexpected controller password prompt')),contextlib.redirect_stdout(io.StringIO()):cli.main()
+        with patch('sys.argv',['broccoli','--system','stats']),patch('broccoli.system_client.SystemClient',return_value=client),patch('getpass.getpass',side_effect=AssertionError('Unexpected controller password prompt')),contextlib.redirect_stdout(io.StringIO()):cli.main()
         self.assertEqual([call.args[0] for call in client.api.call_args_list],['state','statistics'])
     def test_cli_import_default_is_inert_even_with_an_older_backend(self):
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary)/'rules.json';path.write_text(json.dumps({'blocks':[{'name':'Device','device':'shutdown','autostart':{'type':'once','at':1}}]}))
             client=Mock();client.api.side_effect=[{'authenticated':True,'blocks':[]},{'count':1}]
-            with patch('sys.argv',['hotturkey','--system','import',str(path)]),patch('hotturkey.system_client.SystemClient',return_value=client),contextlib.redirect_stdout(io.StringIO()):cli.main()
+            with patch('sys.argv',['broccoli','--system','import',str(path)]),patch('broccoli.system_client.SystemClient',return_value=client),contextlib.redirect_stdout(io.StringIO()):cli.main()
             payload=client.api.call_args.args[1];self.assertFalse(payload['allow_autostart']);self.assertEqual(payload['blocks'][0]['autostart'],{'type':'none'})
     def test_cli_device_autostart_needs_its_specific_confirmation_flag(self):
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary)/'rules.json';path.write_text(json.dumps({'blocks':[{'name':'Device','device':'shutdown','autostart':{'type':'once','at':1}}]}))
             client=Mock();client.api.return_value={'authenticated':True,'blocks':[]}
-            with patch('sys.argv',['hotturkey','--system','import',str(path),'--keep-autostart']),patch('hotturkey.system_client.SystemClient',return_value=client),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):cli.main()
+            with patch('sys.argv',['broccoli','--system','import',str(path),'--keep-autostart']),patch('broccoli.system_client.SystemClient',return_value=client),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):cli.main()
             self.assertEqual(client.api.call_count,1)
     def test_cli_system_open_uses_only_the_separate_desktop_connection(self):
         with tempfile.TemporaryDirectory() as temporary:
             data=Path(temporary);directory=data/'system-desktop';directory.mkdir()
             (data/'connection.json').write_text('{"port":1111,"token":"legacy"}')
             (directory/'connection.json').write_text('{"mode":"system","port":2222,"token":"system"}')
-            with patch('sys.argv',['hotturkey','--data',str(data),'--system','open']),patch('hotturkey.cli.webbrowser.open') as opened:
+            with patch('sys.argv',['broccoli','--data',str(data),'--system','open']),patch('broccoli.cli.webbrowser.open') as opened:
                 cli.main()
             opened.assert_called_once_with('http://127.0.0.1:2222/#token=system')
     def test_cli_system_serve_starts_only_the_ui_adapter(self):
-        with patch('sys.argv',['hotturkey','--system','serve']),patch('hotturkey.system_desktop.SystemDesktopService') as adapter,patch('hotturkey.server.Service',side_effect=AssertionError('Legacy service started')):
+        with patch('sys.argv',['broccoli','--system','serve']),patch('broccoli.system_desktop.SystemDesktopService') as adapter,patch('broccoli.server.Service',side_effect=AssertionError('Legacy service started')):
             cli.main();adapter.return_value.run.assert_called_once_with()
-        with patch('sys.argv',['hotturkey','--system','serve','--enforce']),self.assertRaises(SystemExit):cli.main()
+        with patch('sys.argv',['broccoli','--system','serve','--enforce']),self.assertRaises(SystemExit):cli.main()
 
 
 if __name__=='__main__':unittest.main()

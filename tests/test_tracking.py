@@ -5,9 +5,9 @@ import os
 import tempfile
 import time
 import unittest
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds,intervals,seconds,intersect,filter_match
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds,intervals,seconds,intersect,filter_match
 
 class TrackingTests(unittest.TestCase):
     def setUp(self):

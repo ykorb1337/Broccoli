@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlsplit,parse_qs
-from hotturkey.google_calendar import GoogleCalendar,PolicyError,CalendarHTTPError,BASE_SCOPES,LABEL_SCOPE,LABEL_WRITE_SCOPE
-from hotturkey.google_calendar_preview import CalendarSnapshot
+from broccoli.google_calendar import GoogleCalendar,PolicyError,CalendarHTTPError,BASE_SCOPES,LABEL_SCOPE,LABEL_WRITE_SCOPE
+from broccoli.google_calendar_preview import CalendarSnapshot
 
 class Vault:
  def __init__(self):self.value={}

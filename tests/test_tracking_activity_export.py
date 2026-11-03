@@ -1,8 +1,8 @@
 import csv,io,json,tempfile,unittest,zipfile
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_export import export
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_export import export
 
 class ActivityExportTests(unittest.TestCase):
  def setUp(self):

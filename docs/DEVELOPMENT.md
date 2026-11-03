@@ -31,7 +31,7 @@ Open `build/current-day-preview-url.txt`. This makes a fresh independent copy of
 
 The main app is `build/Broccoli.app`; the DMG contains **Broccoli Installer**. **Broccoli Uninstaller** is a separate ZIP and is never embedded, downloaded, or linked in the app. Its removal backend is excluded from the main app. See [installation](INSTALLATION.md).
 
-The existing `local.hotturkey.desktop` bundle identity, IPC identifiers and `~/Library/Application Support/HotTurkey` data location remain stable for upgrades. Visible branding is Broccoli. Do not rename persistent identities without a migration plan.
+Keep the `local.hotturkey.desktop` bundle identity and IPC identifiers stable to preserve existing permissions and connections. New installations use `~/Library/Application Support/Broccoli`, the `broccoli` Python package and `broccoli.sqlite3`. Upgrades locate existing data in either application-support directory and retain compatibility with legacy databases. Explicit filename migrations checkpoint the database before renaming it; never rename an active SQLite WAL or SHM file independently.
 
 The installer preserves databases, rules, budgets, recovery settings, browser permissions and Google credentials. Normal updates retain the lock gate. Uninstall is permitted during unrelated locks; an explicit uninstaller app rule or installer-blocking setting takes precedence. Uninstall retains local data and has reversible file staging.
 

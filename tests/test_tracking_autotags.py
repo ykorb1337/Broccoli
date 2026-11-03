@@ -4,9 +4,9 @@ import tempfile
 import unittest
 import time
 from unittest.mock import patch
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
 
 
 class AutoTagTests(unittest.TestCase):
@@ -173,13 +173,13 @@ class AutoTagTests(unittest.TestCase):
         def spawn(*args,**kwargs):
             process=original(*args,**kwargs);processes.append(process);return process
         before=time.monotonic()
-        with patch('hotturkey.tracking_regex.subprocess.Popen',side_effect=spawn):result=self.result()
+        with patch('broccoli.tracking_regex.subprocess.Popen',side_effect=spawn):result=self.result()
         self.assertLess(time.monotonic()-before,3);self.assertEqual(result['items'][0]['tags'],['Safe']);self.assertIn('耗时过长',result['errors'][0]['message'])
         self.assertTrue(processes);self.assertTrue(all(p.poll() is not None for p in processes));self.assertEqual(self.t.day('2026-10-29')['totals']['active'],0)
         with self.assertRaises(PolicyError):self.a.convert(self.start,self.end)
     def test_repeated_regex_results_do_not_start_new_workers(self):
         self.record(title='Project One');self.rule(tags=['{{1}}'],conditions=[{'field':'title','operator':'regex','value':r'Project (.+)'}]);self.assertEqual(self.spans(),[(0,100,['One'])])
-        with patch('hotturkey.tracking_regex.subprocess.run',side_effect=AssertionError('Unnecessary repeat')):self.assertEqual(self.spans(),[(0,100,['One'])])
+        with patch('broccoli.tracking_regex.subprocess.run',side_effect=AssertionError('Unnecessary repeat')):self.assertEqual(self.spans(),[(0,100,['One'])])
     def test_append_matched_group_data_keeps_applications_distinct(self):
         self.record(0,50,group_name='Editor');self.record(50,100,application='Mail',group_name='Mail')
         self.rule(append_data=True,match='any',conditions=[{'field':'application','value':'Editor'},{'field':'application','value':'Mail'}])
@@ -265,7 +265,7 @@ class AutoTagTests(unittest.TestCase):
         rows=self.result()['items'];manual=next(r for r in rows if r['tags']==['Manual'] and not r['inferred']);self.assertEqual(manual['seconds'],10);self.assertEqual(manual['notes'],'Keep')
     def test_regex_worker_failure_is_a_diagnostic_and_never_an_empty_success(self):
         self.record();self.rule(conditions=[{'field':'title','operator':'regex','value':'Project (.+)'}])
-        with patch('hotturkey.tracking_regex.subprocess.run',side_effect=OSError('missing runtime')):
+        with patch('broccoli.tracking_regex.subprocess.run',side_effect=OSError('missing runtime')):
             result=self.result();self.assertEqual(result['items'],[]);self.assertIn('组件暂不可用',result['errors'][0]['message'])
         self.assertEqual(self.t.tags(self.start,self.end),[])
 

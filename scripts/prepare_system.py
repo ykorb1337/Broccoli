@@ -10,11 +10,11 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.ipc import decode_json
-from hotturkey.system_package import (DAEMON,DATA,INSTALL,SOCKET_DIRECTORY,browser_binding,digest,
+from broccoli.ipc import decode_json
+from broccoli.system_package import (DAEMON,DATA,INSTALL,SOCKET_DIRECTORY,browser_binding,digest,
                                       prepare_payload,verify_payload)
-from hotturkey.session_launch import SESSION_PLIST
-from hotturkey.installation_gate import MARKER
+from broccoli.session_launch import SESSION_PLIST
+from broccoli.installation_gate import MARKER
 
 
 def main():

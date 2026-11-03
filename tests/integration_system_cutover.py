@@ -19,19 +19,19 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer
-from hotturkey.installation_gate import InstallationGate
-from hotturkey.ipc import peer_identity
-from hotturkey.platform_macos import boot_id
-from hotturkey.server import Service
-from hotturkey.store import Store
-from hotturkey.system_cutover import CutoverCoordinator,CutoverDriver,staging_paths
-from hotturkey.system_enforcement import SystemExecution
-from hotturkey.system_migration import migrate_database
-from hotturkey.system_package import digest,prepare_payload,verify_payload
-from hotturkey.system_transaction import read_private_record,write_private_record
-from hotturkey.trusted_sessions import TrustedSessions
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer
+from broccoli.installation_gate import InstallationGate
+from broccoli.ipc import peer_identity
+from broccoli.platform_macos import boot_id
+from broccoli.server import Service
+from broccoli.store import Store
+from broccoli.system_cutover import CutoverCoordinator,CutoverDriver,staging_paths
+from broccoli.system_enforcement import SystemExecution
+from broccoli.system_migration import migrate_database
+from broccoli.system_package import digest,prepare_payload,verify_payload
+from broccoli.system_transaction import read_private_record,write_private_record
+from broccoli.trusted_sessions import TrustedSessions
 
 
 class Driver(CutoverDriver):
@@ -42,7 +42,7 @@ class Driver(CutoverDriver):
         self.legacy=root/'legacy';self.old=None;self.old_thread=None;self.server=None;self.thread=None;self.store=None;self.agent=None;self.fixture=None;self.errors=[]
         self.fail_precommit=False;self.fail_postcommit=False;self.pending_checked=False;self.uid=os.getuid()
         seed=Store(self.legacy)
-        from hotturkey.engine import Engine
+        from broccoli.engine import Engine
         engine=Engine(seed,boot_id=boot_id());block=engine.save_block({'name':'Owned cutover fixture','enabled':True,'applications':['binary:'+str(executable)]})
         self.block=block['id'];seed.state['settings']['statistics']=False;seed.charge(engine.now(),self.block,123);seed.save();seed.db.close()
         self.start_old()
@@ -75,7 +75,7 @@ class Driver(CutoverDriver):
         stages=staging_paths(self.targets,context['transaction'])
         shutil.copytree(self.template,stages['program'],symlinks=True);verify_payload(stages['program'])
         import pwd
-        migrate_database(self.legacy/'hotturkey.sqlite3',stages['database'],self.uid,self.uid,boot_id(),pwd.getpwuid)
+        migrate_database(self.legacy/'broccoli.sqlite3',stages['database'],self.uid,self.uid,boot_id(),pwd.getpwuid)
         value={'version':1,'transaction':context['transaction'],'phase':'pending','controller_uid':self.uid,'payload_sha256':context['payload_sha256']}
         write_private_record(stages['activation'],value,initial=True,owner_uid=self.uid,anchor=self.root)
         return stages

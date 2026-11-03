@@ -4,11 +4,11 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_regex import RegexMatcher
-from hotturkey.tracking_search import compile_query,filter_records
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_regex import RegexMatcher
+from broccoli.tracking_search import compile_query,filter_records
 
 
 def activity(title='Microsoft research',hour=10,seconds=70,**fields):
@@ -85,17 +85,17 @@ class SearchGrammarTests(unittest.TestCase):
         for value in [None,{},[],False,'duration>'+('9'*400)]:
             with self.subTest(value=str(value)[:30]),self.assertRaises(PolicyError):compile_query(value)
     def test_validation_does_not_execute_expressions(self):
-        with patch('hotturkey.tracking_search.REGEX.match',side_effect=AssertionError('must not execute')):
+        with patch('broccoli.tracking_search.REGEX.match',side_effect=AssertionError('must not execute')):
             compile_query(r'#"validation-only-\d+"')
     def test_batch_regex_evaluated_once_with_deduplicated_values(self):
         rows=[activity('Window '+str(i%130)) for i in range(500)]
         matcher=RegexMatcher()
-        with patch('hotturkey.tracking_search.REGEX',matcher),patch.object(matcher,'match',wraps=matcher.match) as run:
+        with patch('broccoli.tracking_search.REGEX',matcher),patch.object(matcher,'match',wraps=matcher.match) as run:
             result=filter_records(rows,r'#"Window [12]$"')
             self.assertEqual(len(result),8);self.assertEqual(run.call_count,1)
             self.assertEqual(len(run.call_args.args[1]),130)
     def test_catastrophic_regex_is_terminated(self):
-        with patch('hotturkey.tracking_search.REGEX',RegexMatcher()),patch('hotturkey.tracking_regex.TIMEOUT',.1):
+        with patch('broccoli.tracking_search.REGEX',RegexMatcher()),patch('broccoli.tracking_regex.TIMEOUT',.1):
             start=time.monotonic()
             with self.assertRaises(PolicyError):self.match(r'#"(a+)+$"',activity('a'*5000+'!'))
             self.assertLess(time.monotonic()-start,1.5)
@@ -116,12 +116,12 @@ class SearchIntegrationTests(unittest.TestCase):
         self.assertEqual(len(self.t.day('2026-10-28',query=query)['details']),2)
         self.assertEqual(sum(row['total'] for row in self.t.report(self.a,self.b,query=query)['series']),180)
         for start,end,title in [(0,60,'Draft'),(60,180,'Review'),(180,190,'Private')]:self.t.save_tag({'start':self.a+start,'end':self.a+end,'tags':[title]})
-        from hotturkey.tracking_timesheet import render
+        from broccoli.tracking_timesheet import render
         self.assertEqual(render(self.t,self.a,self.b,{'query':query})['seconds'],180)
     def test_global_and_series_or_queries_are_parenthesized(self):
         self.app(title='Draft',application='Editor');self.app(60,title='Brief',application='Browser')
         self.app(120,title='Draft',application='Reader');self.app(180,title='Other',application='Browser')
-        from hotturkey.tracking_reports import render
+        from broccoli.tracking_reports import render
         result=render(self.t,self.a,self.b,{'type':'custom','query':'Draft or Brief','series':[{'timeline':'applications','query':'app:Editor or app:Browser'}]})
         self.assertEqual(result['series'][0]['total'],120)
     def test_legacy_period_duration_agrees_in_day_and_reports(self):
@@ -140,7 +140,7 @@ class SearchIntegrationTests(unittest.TestCase):
         def read():
             try:self.t.day('2026-10-28',query=r'#"lock-probe"')
             except Exception as error:errors.append(error)
-        with patch('hotturkey.tracking_search.REGEX.match',side_effect=slow):
+        with patch('broccoli.tracking_search.REGEX.match',side_effect=slow):
             thread=threading.Thread(target=read);thread.start()
             try:
                 self.assertTrue(entered.wait(1));self.assertTrue(self.t.lock.acquire(timeout=.2));self.t.lock.release()

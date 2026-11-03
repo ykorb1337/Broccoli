@@ -11,13 +11,13 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer
-from hotturkey.ipc import peer_identity
-from hotturkey.platform_macos import native_samples,native_command,stop_native
-from hotturkey.store import Store
-from hotturkey.system_client import SystemClient
-from hotturkey.system_enforcement import SystemExecution
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer
+from broccoli.ipc import peer_identity
+from broccoli.platform_macos import native_samples,native_command,stop_native
+from broccoli.store import Store
+from broccoli.system_client import SystemClient
+from broccoli.system_enforcement import SystemExecution
 
 
 def main():

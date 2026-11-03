@@ -4,7 +4,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto'),cp=require('node:child_process');
 const args=process.argv.slice(2),legacy=args[0]==='--legacy';
 const [fixture,host,config,socket,uid,origin]=args;
-const child=legacy?cp.spawn(args[1],['-E','-s','-B','-m','hotturkey.native_host'],{stdio:['pipe','pipe','pipe']}):cp.spawn(fixture,[host,config,socket,uid,origin],{stdio:['pipe','pipe','pipe']});
+const child=legacy?cp.spawn(args[1],['-E','-s','-B','-m','broccoli.native_host'],{stdio:['pipe','pipe','pipe']}):cp.spawn(fixture,[host,config,socket,uid,origin],{stdio:['pipe','pipe','pipe']});
 let buffer=Buffer.alloc(0),pending=null,maxFrame=0,replies=0;
 child.stdout.on('data',data=>{buffer=Buffer.concat([buffer,data]);while(buffer.length>=4){const size=buffer.readUInt32LE();if(size>1024*1024){pending?.reject(Error('Oversized native frame'));return;}if(buffer.length<size+4)return;const body=buffer.subarray(4,size+4);buffer=buffer.subarray(size+4);maxFrame=Math.max(maxFrame,size);replies++;const item=pending;pending=null;if(item){clearTimeout(item.timer);try{item.resolve(JSON.parse(body));}catch(error){item.reject(error);}}}});
 child.on('error',error=>pending?.reject(error));child.on('exit',()=>{if(pending){clearTimeout(pending.timer);pending.reject(Error('Native fixture exited'));pending=null;}});

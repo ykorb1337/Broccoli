@@ -17,8 +17,8 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.system_jobs import _Job,_JobControl,read_plan
-from hotturkey.system_processes import JobProcesses,KernelProcesses
+from broccoli.system_jobs import _Job,_JobControl,read_plan
+from broccoli.system_processes import JobProcesses,KernelProcesses
 
 SOURCE=r'''
 #include <stdio.h>

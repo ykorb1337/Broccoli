@@ -3,11 +3,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import PolicyRPC
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import PolicyRPC
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.store import Store
 from test_authority import Clock,account
 
 
@@ -101,7 +101,7 @@ class ManagementTests(unittest.TestCase):
         self.call('statistics-clear');self.assertEqual(self.call('statistics-export'),[])
         self.assertEqual(self.authority.engine(501).store.used(b['id'],0),20)
     def test_user_catalog_does_not_expose_other_accounts_to_noncontroller(self):
-        with patch('hotturkey.authority_management.pwd.getpwall',return_value=[account(501),account(502)]):
+        with patch('broccoli.authority_management.pwd.getpwall',return_value=[account(501),account(502)]):
             self.assertEqual([p['name'] for p in self.call('users')],['alice','bob'])
         self.assertEqual([p['name'] for p in self.call('users',uid=502)],['bob'])
 

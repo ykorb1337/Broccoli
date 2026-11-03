@@ -9,12 +9,12 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import PolicyRPC
-from hotturkey.ipc import PeerIdentity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.system_desktop import SystemDesktopService
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import PolicyRPC
+from broccoli.ipc import PeerIdentity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.system_desktop import SystemDesktopService
 
 
 class DesktopTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class DesktopTests(unittest.TestCase):
         class Client:
             session=''
             def api(self,route,data=None):
-                from hotturkey.system_client import ROUTES
+                from broccoli.system_client import ROUTES
                 owner.requests.append((route,self.session,copy.deepcopy(data)))
                 return owner.rpc.dispatch(PeerIdentity(os.getuid(),os.getgid(),1,b'x'*32),
                     {'op':ROUTES[route],'data':{} if data is None else data,'session':self.session})
@@ -48,7 +48,7 @@ class DesktopTests(unittest.TestCase):
     def call(self,path,data=None,session=''):
         code,value=self.request(path,data,session);self.assertEqual(code,200,value);return value
     def test_only_ephemeral_system_connection_and_no_legacy_database(self):
-        self.assertFalse((self.directory/'hotturkey.sqlite3').exists())
+        self.assertFalse((self.directory/'broccoli.sqlite3').exists())
         self.assertFalse((self.directory/'connection.json').exists())
         path=self.directory/'system-desktop/connection.json'
         self.assertEqual(json.loads(path.read_text())['mode'],'system')
@@ -109,11 +109,11 @@ class DesktopTests(unittest.TestCase):
         self.service.client_factory=unavailable
         before=copy.deepcopy(self.store.state)
         self.assertEqual(self.request('blocks/save',{'block':{'name':'Never local'}})[0],400)
-        self.assertEqual(self.store.state,before);self.assertFalse((self.directory/'hotturkey.sqlite3').exists())
+        self.assertEqual(self.store.state,before);self.assertFalse((self.directory/'broccoli.sqlite3').exists())
         self.assertEqual(self.call('health')['mode'],'system')
     def test_local_app_catalog_requires_authenticated_manager(self):
         self.call('settings',{'password':'fixture'})
-        with patch('hotturkey.platform_macos.applications',return_value=[{'value':'bundle:fixture.app','label':'Fixture'}]) as catalog:
+        with patch('broccoli.platform_macos.applications',return_value=[{'value':'bundle:fixture.app','label':'Fixture'}]) as catalog:
             self.assertEqual(self.request('apps')[0],400);catalog.assert_not_called()
             session=self.call('auth',{'password':'fixture'})['session']
             self.assertEqual(self.call('apps',session=session)[0]['label'],'Fixture')

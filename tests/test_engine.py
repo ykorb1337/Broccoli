@@ -4,9 +4,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from hotturkey.engine import Engine, password_hash, password_ok
-from hotturkey.model import matches, validate_block, spans, PolicyError
-from hotturkey.store import Store
+from broccoli.engine import Engine, password_hash, password_ok
+from broccoli.model import matches, validate_block, spans, PolicyError
+from broccoli.store import Store
 
 class Clock:
     def __init__(self):self.value=dt.datetime(2026,10,19,9,0).timestamp();self.mono=1000

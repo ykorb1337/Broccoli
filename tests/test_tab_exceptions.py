@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hotturkey.engine import Engine
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tab_exceptions import TabExceptions,scope
+from broccoli.engine import Engine
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tab_exceptions import TabExceptions,scope
 from test_authority import Clock
 
 

@@ -2,9 +2,9 @@
 import copy
 import tempfile
 import unittest
-from hotturkey.engine import Engine
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
+from broccoli.engine import Engine
+from broccoli.model import PolicyError
+from broccoli.store import Store
 from test_authority import Clock
 
 class EmergencyScopeTests(unittest.TestCase):

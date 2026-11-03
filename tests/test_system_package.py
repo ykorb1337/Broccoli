@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey import system_package as package
+from broccoli import system_package as package
 
 
 class PackageTests(unittest.TestCase):
@@ -17,7 +17,7 @@ class PackageTests(unittest.TestCase):
         resources=self.app/'Contents/Resources';(resources/'python/bin').mkdir(parents=True)
         (resources/'python/bin/python3.13').write_text('python');(resources/'python/bin/python3.13').chmod(0o755)
         (resources/'python/bin/python3').symlink_to('python3.13');(resources/'python-path.txt').write_text('python/bin/python3')
-        source=resources/'project';(source/'hotturkey').mkdir(parents=True);(source/'hotturkey/authority_server.py').write_text('fixture')
+        source=resources/'project';(source/'broccoli').mkdir(parents=True);(source/'broccoli/authority_server.py').write_text('fixture')
         (source/'build').mkdir()
         for name in package.HELPERS:(source/'build'/name).write_text(name);(source/'build'/name).chmod(0o755)
         (source/'build/HotTurkeyAgent').write_text('legacy helper')
@@ -46,7 +46,7 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn('HotTurkeySystemMode',plistlib.loads((self.app/'Contents/Info.plist').read_bytes()))
         for call in package.subprocess.run.call_args_list:self.assertNotIn('/bin/launchctl',call.args[0])
     def test_tampering_extra_file_mode_and_injected_startup_are_rejected(self):
-        self.prepare();target=self.destination/'project/hotturkey/authority_server.py';target.write_text('tampered')
+        self.prepare();target=self.destination/'project/broccoli/authority_server.py';target.write_text('tampered')
         with self.assertRaises(ValueError):package.verify_payload(self.destination)
         self.refresh_manifest()
         with self.assertRaises(ValueError):package.verify_payload(self.destination)

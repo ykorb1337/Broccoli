@@ -1,3 +1,4 @@
+from .paths import policy_database,DATABASE_FILES
 """Bounded policy RPC for a future protected macOS installation.
 
 Not registered by the current-user installer. Production startup requires root,
@@ -320,7 +321,7 @@ class AuthorityServer:
 def production_server():
     if os.geteuid()!=0:raise PermissionError('System authority requires root installation')
     # A root interpreter may not import this service from a user-writable tree.
-    package=trusted_directory(INSTALL/'project/hotturkey')
+    package=trusted_directory(INSTALL/'project/broccoli')
     if Path(__file__).resolve().parent!=package:raise PermissionError('Authority code is outside the protected installation')
     for path in package.glob('*.py'):trusted_path(path)
     config_path=trusted_path(CONFIG)
@@ -345,7 +346,7 @@ def production_server():
     trusted_directory(DATA)
     trusted_directory(SOCKET.parent)
     for path in DATA.iterdir():
-        if path.name not in {'hotturkey.sqlite3','hotturkey.sqlite3-wal','hotturkey.sqlite3-shm','service.lock'}:
+        if path.name not in DATABASE_FILES|{'service.lock'}:
             raise PermissionError('Unexpected protected data entry')
         trusted_path(path)
     from .installation_gate import InstallationGate,MARKER
@@ -353,7 +354,7 @@ def production_server():
     manifest=trusted_path(INSTALL/'payload.json')
     if manifest.stat().st_size>8*1024**2:raise ValueError('Installation manifest too large')
     gate=InstallationGate(MARKER,config['controller_uid'],digest(manifest))
-    trusted_path(DATA/'hotturkey.sqlite3')
+    trusted_path(policy_database(DATA))
     from .service_lease import ServiceLease
     lease=ServiceLease(DATA/'service.lock',owner_uid=0)
     try:store=Store(DATA)

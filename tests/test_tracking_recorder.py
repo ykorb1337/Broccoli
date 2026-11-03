@@ -1,9 +1,9 @@
 import copy
 import tempfile
 import unittest
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_recorder import TrackingRecorder
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_recorder import TrackingRecorder
 
 class RecorderTests(unittest.TestCase):
     def setUp(self):

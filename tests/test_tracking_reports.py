@@ -1,8 +1,8 @@
 import datetime as dt
 import tempfile
 import unittest
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
 class ReportTests(unittest.TestCase):
  def setUp(self):self.temp=tempfile.TemporaryDirectory();self.store=Store(self.temp.name);self.t=TrackingStore(self.store);self.a,self.b=day_bounds('2026-10-28')
  def tearDown(self):self.t.close();self.store.db.close();self.temp.cleanup()
@@ -47,7 +47,7 @@ class ReportTests(unittest.TestCase):
   self.assertTrue((self.store.directory/'tracking.sqlite3').exists())
  def test_privacy_check_never_waits_for_statistics_write_lock(self):
   import threading
-  from hotturkey.tracking_recorder import TrackingRecorder
+  from broccoli.tracking_recorder import TrackingRecorder
   recorder=TrackingRecorder(self.t,lambda:self.a,lambda:1);done=threading.Event()
   with self.t.lock:
    thread=threading.Thread(target=lambda:(recorder.allowed({'application':'Editor'}),done.set()));thread.start()

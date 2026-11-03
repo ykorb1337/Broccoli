@@ -9,12 +9,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer, PolicyRPC, production_server
-from hotturkey.engine import password_hash
-from hotturkey.ipc import PeerIdentity, receive, send, trusted_directory
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer, PolicyRPC, production_server
+from broccoli.engine import password_hash
+from broccoli.ipc import PeerIdentity, receive, send, trusted_directory
+from broccoli.model import PolicyError
+from broccoli.store import Store
 from test_authority import Clock, account
 
 
@@ -181,7 +181,7 @@ class RPCTests(unittest.TestCase):
         self.assertFalse(server.path.exists())
 
     def test_production_entry_requires_root_and_directory_trust(self):
-        with patch('hotturkey.authority_server.os.geteuid',return_value=501):
+        with patch('broccoli.authority_server.os.geteuid',return_value=501):
             with self.assertRaises(PermissionError):production_server()
         with self.assertRaises(PermissionError):trusted_directory(self.temp.name)
         self.assertEqual(trusted_directory('/usr/bin'),Path('/usr/bin'))

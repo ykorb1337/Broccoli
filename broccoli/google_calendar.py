@@ -120,9 +120,9 @@ class GoogleCalendar:
                         parsed=url.urlsplit(self.path);query=url.parse_qs(parsed.query)
                         try:
                             if self.headers.get('Host')!='127.0.0.1:'+str(self.server.server_port) or parsed.path!='/oauth2callback':raise PolicyError('回调地址无效')
-                            client.complete(query);code=200;text='已连接 Google 日历。可以关闭此页面，返回 HotTurkey。'
+                            client.complete(query);code=200;text='已连接 Google 日历。可以关闭此页面，返回 Broccoli。'
                         except PolicyError as error:code=400;text=str(error)
-                        raw=('<!doctype html><meta charset="utf-8"><title>HotTurkey</title><p>'+text+'</p>').encode()
+                        raw=('<!doctype html><meta charset="utf-8"><title>Broccoli</title><p>'+text+'</p>').encode()
                         self.send_response(code);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.send_header('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'");self.end_headers();self.wfile.write(raw)
                 self.oauth=ThreadingHTTPServer(('127.0.0.1',0),Callback);self.oauth.daemon_threads=True
                 threading.Thread(target=self.oauth.serve_forever,daemon=True).start()

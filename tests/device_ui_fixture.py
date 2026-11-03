@@ -9,8 +9,8 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.engine import Engine
-from hotturkey.server import Service
+from broccoli.engine import Engine
+from broccoli.server import Service
 
 
 def main():

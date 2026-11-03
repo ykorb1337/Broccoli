@@ -11,12 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 
-from hotturkey import system_driver as module
-from hotturkey.engine import Engine,password_hash
-from hotturkey.service_lease import ServiceLease
-from hotturkey.store import Store
-from hotturkey.system_cutover import CutoverCoordinator
-from hotturkey.system_migration import snapshot_database,migrate_database
+from broccoli import system_driver as module
+from broccoli.engine import Engine,password_hash
+from broccoli.service_lease import ServiceLease
+from broccoli.store import Store
+from broccoli.system_cutover import CutoverCoordinator
+from broccoli.system_migration import snapshot_database,migrate_database
 
 
 class Jobs:
@@ -50,8 +50,8 @@ class DriverTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(dir='/private/tmp');self.root=Path(self.temp.name);self.uid=os.getuid()
         registry=self.root/'registry';folder=registry/'jobs'/('a'*32);folder.mkdir(parents=True,mode=0o700)
         self.layout=module._Layout(folder,registry,self.root/'program',self.root/'database',registry/'activation.json',self.root/'daemon.plist',self.root/'session.plist',self.root/'runtime',self.root/'legacy',self.root,self.uid)
-        artifact=self.layout.artifact;(artifact/'project/hotturkey').mkdir(parents=True)
-        (artifact/'project/hotturkey/service_lease.py').write_text('fixture')
+        artifact=self.layout.artifact;(artifact/'project/broccoli').mkdir(parents=True)
+        (artifact/'project/broccoli/service_lease.py').write_text('fixture')
         (artifact/'payload.json').write_text('{}')
         for name in ['authority.plist','session.plist']:(artifact/name).write_bytes(plistlib.dumps({'Label':'fixture'}))
         self.expected=hashlib.sha256(b'{}').hexdigest();self.jobs=Jobs(self.uid);self.drivers=[]
@@ -59,7 +59,7 @@ class DriverTests(unittest.TestCase):
         store.state['settings']['settings_password']=password_hash('fixture password');store.charge(time.time(),self.ident,123);store.save();store.db.close()
         with ServiceLease(self.layout.legacy/'.install.lock'):pass
         with ServiceLease(self.layout.legacy/'service.lock'):pass
-        (folder/'preflight').mkdir(mode=0o700);snapshot_database(self.layout.legacy/'hotturkey.sqlite3',folder/'preflight/hotturkey.sqlite3',self.uid)
+        (folder/'preflight').mkdir(mode=0o700);snapshot_database(self.layout.legacy/'broccoli.sqlite3',folder/'preflight/broccoli.sqlite3',self.uid)
         self.boot=patch.object(module,'boot_id',return_value='fixture-boot');self.boot.start()
         self.verify=patch.object(module,'verify_payload',return_value={'controller_uid':self.uid});self.verifier=self.verify.start()
         self.approval=module._approve(self.layout,self.uid,self.expected,'fixture password')
@@ -78,14 +78,14 @@ class DriverTests(unittest.TestCase):
         store=Store(directory)
         try:
             if 'authority_version' in store.state:
-                from hotturkey.authority import PolicyAuthority
+                from broccoli.authority import PolicyAuthority
                 return PolicyAuthority(store,self.uid,boot_id='fixture-boot').engine(self.uid).store.used(ident,0)
             return store.used(ident,0)
         finally:store.db.close()
     def test_source_password_and_private_owner_checked_before_services(self):
         with self.assertRaises(PermissionError):module._approve(self.layout,self.uid,self.expected,'wrong')
         self.assertEqual(self.jobs.events,[])
-        path=self.layout.folder/'preflight/hotturkey.sqlite3';path.chmod(0o644)
+        path=self.layout.folder/'preflight/broccoli.sqlite3';path.chmod(0o644)
         with self.assertRaises(PermissionError):module._approve(self.layout,self.uid,self.expected,'fixture password')
     def test_missing_stale_foreign_and_invalid_approval_cannot_start_cutover(self):
         for approval in [None,dataclasses.replace(self.approval,expires=0),dataclasses.replace(self.approval,payload_sha256='b'*64),dataclasses.replace(self.approval,expires=float('nan'))]:
@@ -143,10 +143,10 @@ class DriverTests(unittest.TestCase):
         finally:store.db.close()
     def test_existing_system_data_swap_does_not_confuse_old_and_candidate_locks(self):
         shutil.copytree(self.layout.artifact,self.layout.program)
-        migrate_database(self.layout.legacy/'hotturkey.sqlite3',self.layout.database,self.uid,self.uid,'fixture-boot',__import__('pwd').getpwuid)
+        migrate_database(self.layout.legacy/'broccoli.sqlite3',self.layout.database,self.uid,self.uid,'fixture-boot',__import__('pwd').getpwuid)
         with ServiceLease(self.layout.database/'service.lock'):pass
         shutil.rmtree(self.layout.folder/'preflight');(self.layout.folder/'preflight').mkdir(mode=0o700)
-        snapshot_database(self.layout.database/'hotturkey.sqlite3',self.layout.folder/'preflight/hotturkey.sqlite3',self.uid)
+        snapshot_database(self.layout.database/'broccoli.sqlite3',self.layout.folder/'preflight/broccoli.sqlite3',self.uid)
         self.approval=module._approve(self.layout,self.uid,self.expected,'fixture password');self.jobs.loaded={'authority'}
         self.jobs.fail_load=True
         with self.assertRaises(OSError):self.driver().coordinator().apply()

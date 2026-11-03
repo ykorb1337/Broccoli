@@ -57,7 +57,7 @@ class Engine:
             self.statistics_filter_failed=False
             return allowed
         except Exception:
-            if not self.statistics_filter_failed:logging.getLogger('hotturkey').exception('Statistics filter failed; policy accounting continues')
+            if not self.statistics_filter_failed:logging.getLogger('broccoli').exception('Statistics filter failed; policy accounting continues')
             self.statistics_filter_failed=True
             return False
 

@@ -8,9 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from hotturkey.engine import Engine,password_hash
-from hotturkey.setup import Setup
-from hotturkey.store import Store
+from broccoli.engine import Engine,password_hash
+from broccoli.setup import Setup
+from broccoli.store import Store
 
 class SetupTests(unittest.TestCase):
     def setUp(self):
@@ -48,7 +48,7 @@ class SetupTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.setup.uninstall(self.setup.uninstaller)
         self.assertEqual(self.commands,[])
     def test_installer_and_uninstaller_have_blockable_identities(self):
-        from hotturkey.setup_policy import INSTALLER_BUNDLES
+        from broccoli.setup_policy import INSTALLER_BUNDLES
         self.assertIn('local.broccoli.installer',INSTALLER_BUNDLES)
         self.assertIn('local.broccoli.uninstaller',INSTALLER_BUNDLES)
         self.assertIn('com.apple.installer',INSTALLER_BUNDLES)
@@ -64,7 +64,7 @@ class SetupTests(unittest.TestCase):
         self.block();before=copy.deepcopy(self.store.state)
         result=self.setup.uninstall(self.setup.uninstaller)
         self.assertTrue(result['data_preserved']);self.assertFalse(self.setup.app.exists());self.assertTrue(self.setup.uninstaller.exists());self.assertFalse(self.setup.service.exists())
-        self.assertTrue((self.setup.data/'screenshots/keep.png').exists());self.assertTrue((self.setup.data/'hotturkey.sqlite3').exists())
+        self.assertTrue((self.setup.data/'screenshots/keep.png').exists());self.assertTrue((self.setup.data/'broccoli.sqlite3').exists())
         manifest=json.loads((Path(result['backup'])/'restore.json').read_text());self.assertGreaterEqual(len(manifest['moves']),6)
         self.assertEqual(json.loads(self.store.db.execute('SELECT value FROM state').fetchone()[0]),before)
         for move in reversed(manifest['moves']):Path(move['to']).rename(move['from'])

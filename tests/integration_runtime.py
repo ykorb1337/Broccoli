@@ -42,7 +42,7 @@ def main():
         subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(app)],check=True)
         proof.update(relocated_app_runs=True,host_python_environment_ignored=True,python_version=result['version'],native_runtime_files_audited=len(native),no_external_development_dependencies=True,signature_valid_after_relocation=True)
         with (directory/'service-output.log').open('wb') as log:
-            service=subprocess.Popen(command+['-m','hotturkey.server','--enforce'],cwd=project,env=env,stdout=log,stderr=subprocess.STDOUT)
+            service=subprocess.Popen(command+['-m','broccoli.server','--enforce'],cwd=project,env=env,stdout=log,stderr=subprocess.STDOUT)
             fixture=None
             try:
                 connection=None
@@ -72,7 +72,7 @@ def main():
                 while fixture.poll() is None and time.monotonic()<deadline:time.sleep(.1)
                 assert fixture.poll() is not None and fixture.returncode<0
                 payload=json.dumps({'op':'check','data':{'url':'https://runtime-fixture.example','record':False}}).encode()
-                host=subprocess.run(command+['-m','hotturkey.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,env=env,cwd=project,check=True,timeout=8)
+                host=subprocess.run(command+['-m','broccoli.native_host'],input=struct.pack('<I',len(payload))+payload,capture_output=True,env=env,cwd=project,check=True,timeout=8)
                 size=struct.unpack('<I',host.stdout[:4])[0];decision=json.loads(host.stdout[4:4+size]);assert decision['blocked']
                 proof.update(relocated_service_healthy=True,relocated_native_enforcement=True,relocated_native_messaging=True,locked_rule_preserved=True)
             finally:

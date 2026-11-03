@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.engine import Engine, password_hash
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
+from broccoli.authority import PolicyAuthority
+from broccoli.engine import Engine, password_hash
+from broccoli.model import PolicyError
+from broccoli.store import Store
 
 
 class Clock:

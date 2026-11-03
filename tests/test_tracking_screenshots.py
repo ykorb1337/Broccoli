@@ -5,10 +5,10 @@ import tempfile
 import tracemalloc
 import unittest
 from pathlib import Path
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds
-from hotturkey.tracking_recorder import TrackingRecorder
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds
+from broccoli.tracking_recorder import TrackingRecorder
 
 PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT+0AAAAASUVORK5CYII=')
 
@@ -39,7 +39,7 @@ class ScreenshotTests(unittest.TestCase):
         def read():
             try:self.t.screenshots(self.a,self.b,query=r'#"Draft"')
             except Exception as error:errors.append(error)
-        with patch('hotturkey.tracking_search.REGEX.match',side_effect=slow):
+        with patch('broccoli.tracking_search.REGEX.match',side_effect=slow):
             thread=threading.Thread(target=read);thread.start()
             try:
                 self.assertTrue(entered.wait(1));self.assertTrue(self.t.lock.acquire(timeout=.2));self.t.lock.release()
@@ -71,7 +71,7 @@ class ScreenshotTests(unittest.TestCase):
         command=self.start();image=self.image(capture_id=command['capture_id']);self.sample(delta=21,screenshots=[image]);self.assertEqual(self.t.screenshots(self.a,self.b),[])
     def test_malformed_capture_metadata_cleans_unregistered_file(self):
         command=self.start();image=self.image(capture_id=command['capture_id'],at='invalid')
-        with self.assertLogs('hotturkey',level='WARNING'):self.sample(screenshots=[image])
+        with self.assertLogs('broccoli',level='WARNING'):self.sample(screenshots=[image])
         self.assertFalse((self.store.directory/'screenshots'/image['file']).exists())
     def test_replayed_capture_cannot_delete_registered_image(self):
         command=self.start();image=self.image(capture_id=command['capture_id']);self.sample(screenshots=[image]);image['capture_id']='expired'
@@ -88,7 +88,7 @@ class ScreenshotTests(unittest.TestCase):
         for _ in range(61):self.assertFalse(self.sample()['capture'])
     def test_settings_report_last_screenshot_and_clear_it_after_deletion(self):
         from types import SimpleNamespace
-        from hotturkey.tracking_api import dispatch
+        from broccoli.tracking_api import dispatch
         service=SimpleNamespace(tracking=self.t,tracking_recorder=self.r)
         status=lambda:dispatch(service,'settings','GET',{},{} )['status']['last_screenshot_at']
         self.assertIsNone(status())
@@ -142,7 +142,7 @@ class ScreenshotTests(unittest.TestCase):
         value=self.image();self.t.add_screenshot(value);original=self.t.screenshot(value['id'])[0]
         with tempfile.TemporaryDirectory() as parent:
             root=self.t.screenshot_storage.choose(parent)
-            self.assertEqual(Path(root['path']).name,'HotTurkey Screenshots')
+            self.assertEqual(Path(root['path']).name,'Broccoli Screenshots')
             self.assertEqual(Path(root['path']).stat().st_mode&0o777,0o700)
             self.assertEqual(self.t.screenshot(value['id'])[0],original)
             command=self.start();self.assertEqual(command['storage'],root)
@@ -153,6 +153,14 @@ class ScreenshotTests(unittest.TestCase):
             self.assertEqual(self.t.screenshot(item['id'])[0],PNG)
             self.t.delete_screenshots(ids=[item['id']]);self.assertFalse(target.exists())
             self.assertEqual(self.t.screenshot(value['id'])[0],original)
+    def test_named_screenshot_directories_are_reused(self):
+        with tempfile.TemporaryDirectory() as parent:
+            root=self.t.screenshot_storage.choose(parent)
+            self.assertEqual(self.t.screenshot_storage.choose(root['path']),root)
+            legacy=Path(parent)/'HotTurkey Screenshots';legacy.mkdir(mode=0o700)
+            selected=self.t.screenshot_storage.choose(str(legacy))
+            self.assertEqual(Path(selected['path']),legacy.resolve())
+            self.assertFalse((legacy/'Broccoli Screenshots').exists())
     def test_directory_display_keeps_unicode_spaces_and_long_paths(self):
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as home:
@@ -163,13 +171,13 @@ class ScreenshotTests(unittest.TestCase):
                 self.assertTrue(display.startswith('~/'));self.assertIn(parent.name,display);self.assertNotIn('…',display)
     def test_directory_rejects_unsafe_child_and_generic_setting(self):
         with tempfile.TemporaryDirectory() as parent:
-            child=Path(parent)/'HotTurkey Screenshots';child.mkdir(mode=0o755)
+            child=Path(parent)/'Broccoli Screenshots';child.mkdir(mode=0o755)
             with self.assertRaises(PolicyError):self.t.screenshot_storage.choose(parent)
             child.rmdir();child.symlink_to(self.store.directory)
             with self.assertRaises(PolicyError):self.t.screenshot_storage.choose(parent)
         with self.assertRaises(PolicyError):self.t.configure({'screenshot_directory':'/tmp'})
     def test_index_is_chronological_and_keeps_regular_page_limit(self):
-        from hotturkey.tracking_api import dispatch
+        from broccoli.tracking_api import dispatch
         from types import SimpleNamespace
         for n in range(520):self.t.db.execute('INSERT INTO tracking_screenshots(id,at,display,file,width,height,application,bundle,title) VALUES(?,?,?,?,?,?,?,?,?)',(f'{n:032x}',self.a+n,'main','missing',1,1,'Editor','',''))
         self.t.db.commit();value=dispatch(SimpleNamespace(tracking=self.t),'screenshots/index','GET',{}, {'since':[self.a],'until':[self.b]})

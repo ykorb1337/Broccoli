@@ -4,10 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.tracking import TrackingStore,day_bounds,generated_color
-from hotturkey.tracking_tags import identity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.tracking import TrackingStore,day_bounds,generated_color
+from broccoli.tracking_tags import identity
 
 
 class TagLibraryTests(unittest.TestCase):

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hotturkey.service_lease import ServiceLease
+from broccoli.service_lease import ServiceLease
 
 
 class LeaseTests(unittest.TestCase):
@@ -33,7 +33,7 @@ class LeaseTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):ServiceLease(self.path,create=False)
         self.assertFalse(self.path.exists())
     def test_closed_standard_input_cannot_turn_inherited_lease_into_protocol_stdin(self):
-        code='import os,sys;from pathlib import Path;from hotturkey.service_lease import ServiceLease;os.close(0);lease=ServiceLease(Path(sys.argv[1]));assert lease.fileno()>=3;lease.close()'
+        code='import os,sys;from pathlib import Path;from broccoli.service_lease import ServiceLease;os.close(0);lease=ServiceLease(Path(sys.argv[1]));assert lease.fileno()>=3;lease.close()'
         subprocess.run([sys.executable,'-B','-c',code,str(self.path)],check=True,timeout=5)
 
     def test_replaced_or_unlinked_inode_cannot_prove_quiescence(self):

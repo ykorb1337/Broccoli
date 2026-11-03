@@ -21,7 +21,7 @@ class UserInstallationTests(unittest.TestCase):
             (app/'Contents').mkdir(parents=True);(app/'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'local.hotturkey.desktop'}))
         (self.old/'keep').write_text('old program');(self.target/'runtime').mkdir();(self.target/'runtime/keep').write_text('old runtime')
         self.project=self.root/'project';self.project.mkdir()
-        for folder in ['web','extension','hotturkey','build']:(self.project/folder).mkdir()
+        for folder in ['web','extension','broccoli','build']:(self.project/folder).mkdir()
         (self.project/'build/HotTurkeyAgent').write_bytes(b'fixture')
         self.ui=self.launch.with_name('local.hotturkey.desktop.plist');self.ui.write_bytes(plistlib.dumps({'Label':'local.hotturkey.desktop','ProgramArguments':['/usr/bin/open','-a',str(self.old),'--args','--login']}))
         self.commands=[];self.fail_bootstrap=False

@@ -7,8 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from hotturkey.system_cutover import CutoverCoordinator,CutoverDriver,health_matches,pending_cutover,staging_paths
-from hotturkey.system_transaction import FileTransaction,installation_lock,write_private_record
+from broccoli.system_cutover import CutoverCoordinator,CutoverDriver,health_matches,pending_cutover,staging_paths
+from broccoli.system_transaction import FileTransaction,installation_lock,write_private_record
 
 
 class Clock:
@@ -142,7 +142,7 @@ class CutoverTests(unittest.TestCase):
         self.original();self.assertEqual(self.driver.calls,['authorize','capture'])
     def test_stage_collision_is_not_deleted_and_does_not_restart_old_services(self):
         path=staging_paths(self.targets,'b'*32)['program'];path.write_text('unrelated');path.chmod(0o600)
-        with patch('hotturkey.system_transaction.uuid.uuid4',return_value=SimpleNamespace(hex='b'*32)):
+        with patch('broccoli.system_transaction.uuid.uuid4',return_value=SimpleNamespace(hex='b'*32)):
             with self.assertRaises(FileExistsError):self.coordinator().apply()
         self.original();self.assertEqual(path.read_text(),'unrelated');self.assertEqual(self.driver.calls,['authorize','capture'])
     def test_empty_or_initially_interrupted_records_have_idempotent_no_service_recovery(self):

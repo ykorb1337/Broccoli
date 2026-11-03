@@ -13,8 +13,9 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.server import Service
-from hotturkey.tracking import day_bounds
+from broccoli.server import Service
+from broccoli.paths import user_data_directory
+from broccoli.tracking import day_bounds
 
 
 def copy_today(source,service,day,*,copy_images=True):
@@ -77,7 +78,7 @@ def copy_today(source,service,day,*,copy_images=True):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source',type=Path,default=Path.home()/'Library/Application Support/HotTurkey')
+    parser.add_argument('--source',type=Path,default=user_data_directory())
     parser.add_argument('--day',default=dt.datetime.now().astimezone().date().isoformat())
     parser.add_argument('--calendar-snapshot',action='store_true',help='额外读取安装版日历缓存，只读展示，不复制 Google 凭据')
     parser.add_argument('--calendar-draft',action='store_true',help='允许编辑独立日历副本，不连接 Google 或回写安装版')
@@ -90,7 +91,7 @@ def main():
         try:
             proof=copy_today(args.source,service,args.day)
             if args.calendar_snapshot:
-                from hotturkey.google_calendar_preview import attach_snapshot
+                from broccoli.google_calendar_preview import attach_snapshot
                 proof.update(attach_snapshot(args.source,service,editable=args.calendar_draft))
             args.output.parent.mkdir(parents=True,exist_ok=True)
             args.output.write_text(service.origin+'/#token='+service.token);args.output.chmod(0o600)

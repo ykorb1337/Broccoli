@@ -8,7 +8,7 @@ from pathlib import Path
 from .server import default_data
 
 def main():
-    parser=argparse.ArgumentParser(prog="hotturkey",description="HotTurkey 本地专注管理")
+    parser=argparse.ArgumentParser(prog="broccoli",description="Broccoli 本地专注管理")
     parser.add_argument("--data",type=Path,default=default_data())
     parser.add_argument('--system',action='store_true',help='通过受保护原生客户端管理系统规则；需先完成系统安装')
     parser.add_argument("--settings-password",help="管理密码；也可在交互提示中输入")

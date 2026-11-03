@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from .model import PolicyError
 
-LOG=logging.getLogger('hotturkey')
+LOG=logging.getLogger('broccoli')
 BUNDLED=Path(__file__).resolve().parent.parent/'web/website-icons'
 BUILTIN_HOSTS=frozenset(['python.org','swift.org','github.com','apple.com','notion.so','arxiv.org','wikipedia.org','readthedocs.io','figma.com','mozilla.org','stackoverflow.com','web.dev'])
 

@@ -2,15 +2,15 @@ import copy
 import tempfile
 import unittest
 
-from hotturkey.authority import PolicyAuthority
-from hotturkey.device_blocks import SleepGate,selected_device
-from hotturkey.engine import Engine
-from hotturkey.management import import_blocks,settings_update
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.system_enforcement import SystemDecisions
-from hotturkey.ipc import PeerIdentity
-from hotturkey.trusted_sessions import TrustedSessions
+from broccoli.authority import PolicyAuthority
+from broccoli.device_blocks import SleepGate,selected_device
+from broccoli.engine import Engine
+from broccoli.management import import_blocks,settings_update
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.system_enforcement import SystemDecisions
+from broccoli.ipc import PeerIdentity
+from broccoli.trusted_sessions import TrustedSessions
 from test_authority import Clock,account
 
 WORD='fixture-safe-word'

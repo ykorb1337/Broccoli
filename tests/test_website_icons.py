@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
-from hotturkey.website_icons import WebsiteIcons,hostname,bundled_icon
-from hotturkey.model import PolicyError
+from broccoli.website_icons import WebsiteIcons,hostname,bundled_icon
+from broccoli.model import PolicyError
 
 PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
 
@@ -49,7 +49,7 @@ class WebsiteIconTests(unittest.TestCase):
                 db.execute('INSERT INTO icon_mapping VALUES(?,?)',('https://example.org/page',1))
                 db.execute('INSERT INTO favicon_bitmaps VALUES(?,?,?)',(1,32,PNG))
             now=[0];icons=WebsiteIcons([path],clock=lambda:now[0])
-            with patch('hotturkey.website_icons.shutil.copyfile',side_effect=PermissionError('temporarily unavailable')):
+            with patch('broccoli.website_icons.shutil.copyfile',side_effect=PermissionError('temporarily unavailable')):
                 failed=icons.resolve(['example.org'])['items'][0]
             self.assertIsNone(failed['image']);self.assertEqual(failed['retry_after'],3)
             now[0]=2;self.assertIsNone(icons.resolve(['example.org'])['items'][0]['image'])

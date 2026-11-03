@@ -17,15 +17,15 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-from hotturkey.authority import PolicyAuthority
-from hotturkey.authority_server import AuthorityServer
-from hotturkey.installation_gate import InstallationGate
-from hotturkey.ipc import peer_identity
-from hotturkey.model import PolicyError
-from hotturkey.store import Store
-from hotturkey.system_client import SystemClient
-from hotturkey.system_enforcement import SystemExecution
-from hotturkey.trusted_sessions import TrustedSessions
+from broccoli.authority import PolicyAuthority
+from broccoli.authority_server import AuthorityServer
+from broccoli.installation_gate import InstallationGate
+from broccoli.ipc import peer_identity
+from broccoli.model import PolicyError
+from broccoli.store import Store
+from broccoli.system_client import SystemClient
+from broccoli.system_enforcement import SystemExecution
+from broccoli.trusted_sessions import TrustedSessions
 
 
 def main():
