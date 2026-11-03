@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const ctx={window:{},Map,Set,Array,Math,Boolean,String};vm.createContext(ctx);vm.runInContext(fs.readFileSync('web/tracking-day-data.js','utf8'),ctx);const D=ctx.window.HotTurkeyDayData;
+const ctx={window:{},URL,Map,Set,Array,Math,Boolean,String};vm.createContext(ctx);vm.runInContext(fs.readFileSync('web/tracking-day-data.js','utf8'),ctx);const D=ctx.window.HotTurkeyDayData;
 const row=(id,timeline,start,end,extra={})=>({id,timeline,start,end,seconds:end-start,title:'Draft',group_name:'Editor',application:'Editor',bundle:'test.editor',color:'#123456',source:'recorded',...extra});
 const edge={name:'Microsoft Edge',application:'Microsoft Edge',bundle:'com.microsoft.edgemac'};
 const data={activities:[row('e1','applications',0,50,{...edge,group_name:edge.name,title:'Course page'}),row('e2','applications',80,100,{...edge,group_name:edge.name,title:'Calendar'}),row('t','applications',50,80,{application:'Typora',bundle:'test.typora',group_name:'Typora'}),row('d1','documents',0,50,{...edge,group_name:'course.invalid',url:'https://course.invalid/full/path',title:'Course page'}),row('d2','documents',80,100,{...edge,group_name:'calendar.invalid',url:'https://calendar.invalid/long',title:'Calendar'}),row('other','documents',0,50,{application:'Chrome',bundle:'com.google.Chrome',group_name:'unrelated.invalid',url:'https://unrelated.invalid'}),row('active','computer',0,100,{application:'',bundle:'',title:'Active',group_name:'Active'})],tag_ranges:[[20,30]]};

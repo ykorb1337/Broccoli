@@ -6,7 +6,7 @@ window.HotTurkeyDayData=(()=>{
  function without(ranges,cuts){const out=[];let j=0;for(const [a,b] of ranges){let x=a;while(j<cuts.length&&cuts[j][1]<=a)j++;for(let k=j;k<cuts.length&&cuts[k][0]<b;k++){if(cuts[k][0]>x)out.push([x,Math.min(b,cuts[k][0])]);x=Math.max(x,cuts[k][1]);if(x>=b)break;}if(x<b)out.push([x,b]);}return out;}
  const appName=s=>String(s||'').normalize('NFKC').trim().toLocaleLowerCase();
  const collator=new Intl.Collator('zh-CN',{numeric:true,sensitivity:'base'});
- const title=row=>row.domain|| (row.timeline==='documents'?(row.url||row.document||row.title):row.title);
+ const title=row=>row.display_title||row.domain|| (row.timeline==='documents'?(row.url||row.document||row.title):row.title);
  const suffixRules=new Set((window.HotTurkeyPublicSuffixes||[]).map(v=>v.split('.').map(part=>{try{return new URL('http://'+part).hostname;}catch{return part;}}).join('.')));
  function rootDomain(value){
   try{const u=new URL(value),host=u.hostname.toLowerCase().replace(/\.$/,'');if(!['http:','https:'].includes(u.protocol))return '';if(host.startsWith('[')||/^[\d.]+$/.test(host)||!host.includes('.'))return host;
@@ -15,14 +15,42 @@ window.HotTurkeyDayData=(()=>{
    return parts.slice(-Math.min(parts.length,suffix+1)).join('.');
   }catch{return '';}
  }
+ function documentIdentity(row,detailed=false){
+  const value=String(row.url||row.document||(row.source==='legacy'&&row.metadata?.kind==='website'?(row.group_name||row.title):'')||'').trim();if(!value)return null;
+  const app=row.bundle||appName(row.application),file=(path,display)=>{const clean=path.normalize('NFC'),name=clean.split('/').filter(Boolean).at(-1)||clean;return {key:'file:'+clean,label:detailed?display:name,kind:'file',resource:display};};
+  try{
+   const u=new URL(value);
+   if(['chrome-extension:','moz-extension:','ms-browser-extension:'].includes(u.protocol)&&u.pathname==='/blocked.html'){
+    try{const fragment=u.hash.slice(1);let target=fragment.startsWith('url=')?fragment.slice(4):JSON.parse(decodeURIComponent(fragment)).url;
+     if(!/^(https?:|file:)/i.test(target||''))target=decodeURIComponent(target||'');
+     if(/^(https?:|file:)/i.test(target)){const resource=documentIdentity({...row,url:target,document:''},detailed);if(resource)return {...resource,domain:'',key:'blocked:'+resource.key,label:'拦截页 · '+resource.label,kind:'blocked',website:rootDomain(target)?target:''};}
+    }catch{}
+    return {key:'blocked-page:'+JSON.stringify([app,u.protocol,u.host,u.pathname,detailed?u.hash:'']),label:detailed?'拦截页 · '+value:'拦截页',kind:'blocked',resource:value};
+   }
+   if(['http:','https:'].includes(u.protocol)){const domain=rootDomain(u.href);return {key:detailed?'url:'+u.href:'domain:'+domain,label:detailed?u.href:domain,domain:detailed?'':domain,kind:'website',website:u.href,resource:u.href};}
+   if(u.protocol==='file:'){let path;try{path=decodeURIComponent(u.pathname);}catch{path=u.pathname;}u.hash='';u.search='';return file((u.hostname&&u.hostname!=='localhost'?'//'+u.hostname:'')+path,u.href);}
+   const names={newtab:'新标签页','newtab-page':'新标签页',blank:'空白页'},page=names[u.hostname||u.pathname];
+   const key=u.protocol+'//'+u.host+(u.pathname||(u.host?'/':''))+(detailed?u.search+u.hash:'');
+   return {key:JSON.stringify(['page',app,key]),label:!detailed&&page?(row.application?row.application+' · ':'')+page:value,kind:'page',resource:value};
+  }catch{
+   if(value.startsWith('/')){const parts=[];for(const part of value.split('/')){if(!part||part==='.')continue;if(part==='..')parts.pop();else parts.push(part);}return file('/'+parts.join('/'),value);}
+   return {key:JSON.stringify(['document',app,value.normalize('NFC')]),label:value,kind:'document',resource:value};
+  }
+ }
  const ranges=row=>row.ranges||[[row.start,row.end]];
- function groupDocuments(rows,mode='adjacent'){
-  if(mode==='all'){const groups=new Map(),out=[];for(const row of rows){const domain=rootDomain(row.url||row.document);if(!domain){out.push(row);continue;}if(!groups.has(domain)){const group={...row,id:'domain:'+domain,domain,title:domain,rows:[],ranges:[],start:row.start,end:row.end};groups.set(domain,group);out.push(group);}const group=groups.get(domain);group.rows.push(row);group.ranges.push(...ranges(row));group.start=Math.min(group.start,row.start);group.end=Math.max(group.end,row.end);}for(const group of groups.values()){group.ranges=union(group.ranges);group.seconds=duration(group.ranges);}return out;}
+ function groupDocuments(rows,mode='adjacent',detailed=false){
+  const make=(row,resource)=>({...row,id:(resource.domain?'domain:':'document:')+(mode==='all'?encodeURIComponent(resource.key):row.id),document_key:resource.key,display_title:resource.label,domain:resource.domain||'',document_kind:resource.kind,website_target:resource.website||'',resource:resource.resource,rows:[],ranges:[],start:row.start,end:row.end});
+  const add=(group,row)=>{group.rows.push(row);group.ranges.push(...ranges(row));group.start=Math.min(group.start,row.start);group.end=Math.max(group.end,row.end);};
+  const finish=group=>{group.ranges=union(group.ranges);group.seconds=duration(group.ranges);group.id=detailed&&group.rows.length===1?group.rows[0].id:group.domain?(mode==='all'?'domain:'+group.domain:'domain:'+group.rows[0].id):'document:'+(mode==='all'?encodeURIComponent(group.document_key):group.rows[0].id);return group;};
+  if(mode==='all'){
+   const groups=new Map(),out=[];for(const row of rows){const resource=documentIdentity(row,detailed);if(!resource){out.push(row);continue;}let group=groups.get(resource.key);if(!group){group=make(row,resource);groups.set(resource.key,group);out.push(group);}add(group,row);}
+   for(const group of groups.values())finish(group);return out;
+  }
   const out=[];for(const row of sorted(rows,{key:'start',direction:'asc'})){
-   const domain=rootDomain(row.url||row.document);if(!domain){out.push(row);continue;}
+   const resource=documentIdentity(row,detailed);if(!resource){out.push(row);continue;}
    const previous=out[out.length-1],sameBrowser=previous&&(previous.bundle&&row.bundle?previous.bundle===row.bundle:previous.application===row.application);
-   if(previous?.domain===domain&&sameBrowser&&row.start<=previous.end+1e-6){previous.rows.push(row);previous.ranges=union([...previous.ranges,...ranges(row)]);previous.end=Math.max(previous.end,row.end);previous.seconds=duration(previous.ranges);}
-   else out.push({...row,id:'domain:'+row.id,domain,title:domain,rows:[row],ranges:ranges(row),seconds:duration(ranges(row))});
+   if(previous?.document_key===resource.key&&sameBrowser&&row.start<=previous.end+1e-6){add(previous,row);finish(previous);}
+   else{const group=make(row,resource);add(group,row);out.push(finish(group));}
   }return out;
  }
 
@@ -35,7 +63,7 @@ window.HotTurkeyDayData=(()=>{
   const byId=new Map(),byTimeline=new Map(),rawTimeline=new Map(),plots=new Map(),detailViews=new Map(),matches=data.filtered_ids?new Set(data.filtered_ids):null;
   for(const row of data.activities){byId.set(row.id,row);if(!rawTimeline.has(row.timeline))rawTimeline.set(row.timeline,[]);rawTimeline.get(row.timeline).push(row);if(matches&&!matches.has(row.id))continue;if(!byTimeline.has(row.timeline))byTimeline.set(row.timeline,[]);byTimeline.get(row.timeline).push(row);}
   function groupIndex(source){const groups=new Map();for(const kind of ['tags','autotags','computer','applications','documents']){
-   const map=new Map();for(const row of source.get(kind)||[]){const name=kind==='documents'?(rootDomain(row.url||row.document)||row.group_name):row.group_name;if(!map.has(name))map.set(name,{name,timeline:kind,application:row.application||'',bundle:row.bundle||'',color:row.color,rows:[],ranges:[]});const g=map.get(name);g.rows.push(row);g.ranges.push([row.start,row.end]);}
+   const map=new Map();for(const row of source.get(kind)||[]){const resource=kind==='documents'?documentIdentity(row):null,name=resource?.label||row.group_name,key=resource?.key||name;if(!map.has(key))map.set(key,{name,timeline:kind,application:row.application||'',bundle:row.bundle||'',color:row.color,rows:[],ranges:[]});const g=map.get(key);g.rows.push(row);g.ranges.push([row.start,row.end]);}
    if(kind==='applications'){
     const unknown=(source.get('documents')||[]).filter(r=>r.source==='legacy'&&!r.application);
     if(unknown.length)map.set('历史浏览器（归属未知）',{name:'历史浏览器（归属未知）',timeline:kind,application:'',bundle:'',color:'#8e8e93',unknownBrowser:true,rows:unknown,ranges:unknown.map(r=>[r.start,r.end])});
@@ -66,7 +94,7 @@ window.HotTurkeyDayData=(()=>{
    let rows=(filtered?byTimeline:rawTimeline).get(kind)||[];
    if(app&&['applications','documents'].includes(kind))rows=rows.filter(r=>sameApp(r,app));
    if(untagged)rows=rows.flatMap(row=>without([[row.start,row.end]],tags).map(([start,end])=>({...row,id:row.id+'@'+start,original_id:row.id,start,end,seconds:end-start})));
-   if(kind==='documents'&&!detailed)rows=groupDocuments(rows,grouping);
+   if(kind==='documents')rows=groupDocuments(rows,grouping,detailed);
    rows=sorted(rows,sort);detailViews.set(key,rows);if(detailViews.size>32)detailViews.delete(detailViews.keys().next().value);return rows;
   }
   const hitRows=new Map([...rawTimeline].map(([kind,rows])=>[kind,[...rows].sort((a,b)=>a.start-b.start)]));
@@ -87,5 +115,5 @@ window.HotTurkeyDayData=(()=>{
   for(const [a,b] of clipped){const last=out[out.length-1];if(last&&a-last[1]<step)last[1]=Math.max(last[1],b);else out.push([a,b]);}
   return out;
  }
- return {rootDomain,groupDocuments,ranges,create,union,intersection,duration,without,viewport,plot,title,sorted,selectionPlot};
+ return {rootDomain,documentIdentity,groupDocuments,ranges,create,union,intersection,duration,without,viewport,plot,title,sorted,selectionPlot};
 })();
