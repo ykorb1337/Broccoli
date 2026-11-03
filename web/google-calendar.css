@@ -59,7 +59,7 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-editor-grid>.field { display:block; min-width:0; margin:0; font-size:13px; }
 .gc-editor-grid>.field>span { display:block; color:var(--muted); margin-bottom:6px; }
 .gc-editor-grid input,.gc-editor-grid select { min-width:0; width:100%; }
-.gc-editor .gc-editor-grid textarea { min-height:88px; max-height:180px; resize:vertical; overflow:auto; }
+.gc-editor .gc-editor-grid textarea { min-height:132px; max-height:240px; resize:vertical; overflow:auto; }
 .gc-editor-time { padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel); min-width:0; }
 .gc-editor-time-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:10px; font-size:13px; color:var(--muted); }
 .gc-editor .gc-editor-time-head .gc-all-day-control { margin:0; padding:0; gap:10px; }
@@ -268,7 +268,8 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-insight-row.gc-analysis-active:before { background:var(--hover); }
 .gc-insight-row>* { position:relative; }
 .gc-donut [data-gc-analysis] { pointer-events:stroke; }
-.gc-analysis-highlight .gc-event { opacity:.2; }
+.gc-analysis-highlight .gc-event,.gc-analysis-highlight .gc-month-more { opacity:.2; }
+.gc-analysis-highlight .gc-month-more.gc-analysis-match { opacity:1; background:var(--panel); color:var(--ink); box-shadow:0 2px 7px #00000028; }
 .gc-analysis-highlight .gc-event.gc-analysis-match { opacity:1; position:relative; z-index:2; box-shadow:0 2px 7px #00000028; }
 .gc-analysis-highlight .gc-day>.gc-event.gc-analysis-match { position:absolute; }
 .gc-analysis-highlight .gc-event.entry.gc-analysis-match { background:var(--panel); }
@@ -296,10 +297,21 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-label-control select { flex:1; min-width:0; }
 .gc-label-swatch { width:10px; height:10px; border-radius:50%; flex:none; }
 .gc-label-add { width:30px; min-width:30px; padding:5px; justify-content:center; }
-.gc-label-add svg { width:16px; height:16px; }
-.gc-label-create { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.gc-label-add svg { width:16px; height:16px; transition:transform .16s ease; }
+.gc-label-add[aria-expanded="true"] { color:var(--accent); background:var(--tint); }
+.gc-label-add[aria-expanded="true"] svg { transform:rotate(45deg); }
+.gc-editor-grid>.field:has(#gc-new-label) { position:relative; }
+#gc-new-label { position:absolute; top:calc(100% + 7px); right:0; z-index:105; width:320px; max-width:calc(100vw - 70px); padding:12px; border:1px solid var(--glass-edge,var(--line)); border-radius:12px; background:var(--panel); box-shadow:0 8px 28px #0002,0 1px 4px #0001; animation:gc-pop-in .14s ease-out; }
+.gc-label-create { display:flex; align-items:center; gap:8px; }
+.gc-label-create input:not([type="color"]) { flex:1; width:0; min-width:0; }
+.gc-label-create [data-gc="label-create"] { flex:none; white-space:nowrap; padding:5px 11px; }
 .gc-label-create input[type="color"] { width:38px; min-width:38px; height:30px; padding:3px; }
 #gc-new-label[hidden] { display:none; }
-#gc-new-label>button { margin-top:10px; }
+#gc-new-label>button { margin:0; }
 .gc-month-day.gc-drop-target { background:var(--tint); box-shadow:inset 0 0 0 1px var(--accent); }
 .gc-month .gc-event.dragging { z-index:10; opacity:.8; cursor:grabbing; transition:none; }
+
+@keyframes gc-editor-in { from { opacity:0; transform:translateY(7px) scale(.985); } to { opacity:1; transform:none; } }
+dialog[data-kind="calendar-event"][open] { animation:gc-editor-in .18s cubic-bezier(.2,.7,.3,1); }
+.native-sheet dialog[data-kind="calendar-event"][open] { animation:none; }
+.native-sheet dialog[data-kind="calendar-event"] #modal-body { animation:gc-editor-in .18s ease-out; }

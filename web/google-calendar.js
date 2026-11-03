@@ -85,7 +85,7 @@ window.HotTurkeyGoogleCalendar=(()=>{
  function monthEntry(row){return eventButton(row.item,row.index,'',(D.banner(row.item.event)?'':time(D.bounds(row.item.event).start)+' ')+name(row.item.event));}
  function month(dates){indexedDays(dates);const today=D.dayKey(new Date());return `<div class="gc-month">${dates.slice(0,7).map(d=>`<div class="gc-heading" style="min-height:32px;position:static">${d.toLocaleDateString('zh-CN',{weekday:'short'})}</div>`).join('')}${Array.from({length:6},(_,weekIndex)=>{
   const week=dates.slice(weekIndex*7,weekIndex*7+7),rows=D.weekRows(items,week),shown=rows.filter(row=>row.lane<monthLimit);
-  return `<div class="gc-month-week">${week.map((date,index)=>{const hidden=rows.filter(row=>row.lane>=monthLimit&&row.startDay<=index&&row.endDay>index).length;return `<div class="gc-month-day ${date.getMonth()!==anchor.getMonth()?'outside':''} ${D.dayKey(date)===today?'today':''}" data-date="${D.dayKey(date)}"><button data-gc="day" data-date="${D.dayKey(date)}" aria-label="${D.dayKey(date)}">${date.getDate()}</button>${hidden?`<button class="gc-month-more" data-gc="day-more" data-date="${D.dayKey(date)}">另外 ${hidden} 项</button>`:''}</div>`;}).join('')}<div class="gc-month-events">${shown.map(row=>{
+  return `<div class="gc-month-week">${week.map((date,index)=>{const hiddenRows=rows.filter(row=>row.lane>=monthLimit&&row.startDay<=index&&row.endDay>index),hidden=hiddenRows.length,hiddenCategories=[...new Set(hiddenRows.map(row=>D.analysisCategory(row.item).key))];return `<div class="gc-month-day ${date.getMonth()!==anchor.getMonth()?'outside':''} ${D.dayKey(date)===today?'today':''}" data-date="${D.dayKey(date)}"><button data-gc="day" data-date="${D.dayKey(date)}" aria-label="${D.dayKey(date)}">${date.getDate()}</button>${hidden?`<button class="gc-month-more" data-gc="day-more" data-date="${D.dayKey(date)}" data-gc-categories="${esc(JSON.stringify(hiddenCategories))}">另外 ${hidden} 项</button>`:''}</div>`;}).join('')}<div class="gc-month-events">${shown.map(row=>{
    const html=eventButton(row.item,row.index,`grid-column:${row.startDay+1} / ${row.endDay+1};grid-row:${row.lane+1}`,(D.banner(row.item.event)?'':time(row.start)+' ')+name(row.item.event),false,row.spanning);
    return html.replace('class="gc-event',`class="gc-event${row.start<week[0]?' continues-before':''}${row.end>D.addDays(week[6],1)?' continues-after':''}`);
   }).join('')}</div></div>`;
@@ -101,7 +101,7 @@ window.HotTurkeyGoogleCalendar=(()=>{
  }
  function scheduleMonthFit(){if(typeof requestAnimationFrame!=='function'||monthSizeFrame!==null)return;monthSizeFrame=requestAnimationFrame(()=>{monthSizeFrame=null;fitMonth();});}
  function closeDayPopup(focus=true){if(!dayPopup)return false;dayPopup.remove();dayPopup=null;const button=dayPopupOrigin;dayPopupOrigin=null;if(focus&&button?.isConnected)button.focus({preventScroll:true});return true;}
- function showDayPopup(button){closeDayPopup(false);const date=D.dateOnly(button.dataset.date),rows=dayItems(date);dayPopupOrigin=button;dayPopup=document.createElement('div');dayPopup.className='gc-day-popover';dayPopup.setAttribute('role','dialog');dayPopup.setAttribute('aria-label',label(date)+'日程');dayPopup.innerHTML=`<button class="gc-day-popover-close" data-gc="day-popup-close" aria-label="关闭当天日程">×</button><header><span>${date.toLocaleDateString('zh-CN',{weekday:'long'})}</span><strong>${date.getDate()}</strong></header><div class="gc-day-popover-events">${rows.map(monthEntry).join('')}</div>`;document.querySelector('#google-calendar').appendChild(dayPopup);const rect=button.closest('.gc-month-day').getBoundingClientRect(),box=dayPopup.getBoundingClientRect(),scale=Number(document.body.style.zoom)||1;dayPopup.style.left=Math.max(12,Math.min(innerWidth-box.width-12,rect.left+(rect.width-box.width)/2))/scale+'px';dayPopup.style.top=Math.max(12,Math.min(innerHeight-box.height-12,rect.top-20))/scale+'px';dayPopup.querySelector('.gc-day-popover-close').focus({preventScroll:true});}
+ function showDayPopup(button){closeDayPopup(false);const date=D.dateOnly(button.dataset.date),rows=dayItems(date);dayPopupOrigin=button;dayPopup=document.createElement('div');dayPopup.className='gc-day-popover';dayPopup.setAttribute('role','dialog');dayPopup.setAttribute('aria-label',label(date)+'日程');dayPopup.innerHTML=`<button class="gc-day-popover-close" data-gc="day-popup-close" aria-label="关闭当天日程">×</button><header><span>${date.toLocaleDateString('zh-CN',{weekday:'long'})}</span><strong>${date.getDate()}</strong></header><div class="gc-day-popover-events">${rows.map(monthEntry).join('')}</div>`;document.querySelector('#google-calendar').appendChild(dayPopup);highlightCategory(highlightedCategory,true);const rect=button.closest('.gc-month-day').getBoundingClientRect(),box=dayPopup.getBoundingClientRect(),scale=Number(document.body.style.zoom)||1;dayPopup.style.left=Math.max(12,Math.min(innerWidth-box.width-12,rect.left+(rect.width-box.width)/2))/scale+'px';dayPopup.style.top=Math.max(12,Math.min(innerHeight-box.height-12,rect.top-20))/scale+'px';dayPopup.querySelector('.gc-day-popover-close').focus({preventScroll:true});}
  function agenda(){let previous='',group=-1;return items.length?`<table class="gc-agenda"><tbody>${items.map((item,index)=>{
   const b=D.bounds(item.event),key=D.dayKey(b.start),first=key!==previous,allDay=D.banner(item.event);if(first){group++;previous=key;}
   const continuation=allDay&&!first&&index>0&&D.banner(items[index-1].event);let span=1;if(allDay&&!continuation)while(index+span<items.length&&D.dayKey(D.bounds(items[index+span].event).start)===key&&D.banner(items[index+span].event))span++;
@@ -203,7 +203,12 @@ window.HotTurkeyGoogleCalendar=(()=>{
  function labelField(calendar,event,readOnly,full=true){
   const current=event.eventLabelId||'',labels=(calendar.labels||[]).filter(label=>label.id&&(String(label.name||'').trim()||label.id===current)),known=labels.some(label=>label.id===current),ready=calendar.labels_ready!==false;
   const selected=labels.find(label=>label.id===current),tint=selected?.backgroundColor||color(calendar),canCreate=calendar.accessRole==='owner'&&!readOnly;
-  return field('标签',`<div class="gc-label-control"><span class="gc-label-swatch" style="background:${/^#[a-f\d]{6}$/i.test(tint)?tint:'#007aff'}" aria-hidden="true"></span><select id="gc-label" aria-label="事件标签" ${readOnly||!ready?'disabled':''}><option value="">默认</option>${current&&!known?`<option value="${esc(current)}" selected>当前标签</option>`:''}${labels.map(label=>`<option value="${esc(label.id)}" ${label.id===current?'selected':''}>${esc(label.name||'未命名标签')}</option>`).join('')}</select>${canCreate?`<button type="button" data-gc="label-new" class="gc-label-add" aria-label="添加标签" title="添加标签">${icon('<path d="M12 5v14M5 12h14"/>')}</button>`:''}${!ready&&!readOnly?'<button type="button" data-gc="authorize-labels">同步标签</button>':''}</div>${canCreate?`<div id="gc-new-label" hidden>${status?.label_write_permission?'<div class="gc-label-create"><input id="gc-label-name" aria-label="标签名称" placeholder="标签名称" maxlength="50"><input id="gc-label-color" aria-label="标签颜色" type="color" value="#007aff"><button type="button" data-gc="label-create" class="primary">添加</button></div>':'<button type="button" data-gc="authorize-labels" data-write="true">授权管理标签…</button>'}</div>`:''}`,full,true);
+  return field('标签',`<div class="gc-label-control"><span class="gc-label-swatch" style="background:${/^#[a-f\d]{6}$/i.test(tint)?tint:'#007aff'}" aria-hidden="true"></span><select id="gc-label" aria-label="事件标签" ${readOnly||!ready?'disabled':''}><option value="">默认</option>${current&&!known?`<option value="${esc(current)}" selected>当前标签</option>`:''}${labels.map(label=>`<option value="${esc(label.id)}" ${label.id===current?'selected':''}>${esc(label.name||'未命名标签')}</option>`).join('')}</select>${canCreate?`<button type="button" data-gc="label-new" class="gc-label-add" aria-label="添加标签" title="添加标签" aria-expanded="false" aria-controls="gc-new-label" aria-haspopup="dialog">${icon('<path d="M12 5v14M5 12h14"/>')}</button>`:''}${!ready&&!readOnly?'<button type="button" data-gc="authorize-labels">同步标签</button>':''}</div>${canCreate?`<div id="gc-new-label" role="dialog" aria-label="新增标签" hidden>${status?.label_write_permission?'<div class="gc-label-create"><input id="gc-label-name" aria-label="标签名称" placeholder="标签名称" maxlength="50"><input id="gc-label-color" aria-label="标签颜色" type="color" value="#007aff"><button type="button" data-gc="label-create" class="primary">添加</button></div>':'<button type="button" data-gc="authorize-labels" data-write="true">授权管理标签…</button>'}</div>`:''}`,full,true);
+ }
+ function labelPopover(open,restoreFocus=false){
+  const form=$('#gc-new-label',modal),button=$('[data-gc="label-new"]',modal);if(!form)return;
+  form.hidden=!open;if(button){button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'收起新增标签':'添加标签');button.title=open?'收起':'添加标签';}
+  if(open)$('#gc-label-name',form)?.focus();else if(restoreFocus)button?.focus();
  }
  async function authorizeLabels(write){
   if(editing&&modal.open){const value=draft();labelDraft={...editing,draftValue:value.value,labelWriteGrant:write};}
@@ -246,14 +251,14 @@ window.HotTurkeyGoogleCalendar=(()=>{
   return {calendar:get('gc-target'),event:editing.existing?editing.event.id:null,etag:editing.event.etag,value};
  }
  async function handle(action,element){
-  if(action==='label-new'){const form=$('#gc-new-label',modal);if(form){form.hidden=!form.hidden;if(!form.hidden)$('#gc-label-name',form)?.focus();}return;}
+  if(action==='label-new'){const form=$('#gc-new-label',modal);if(form)labelPopover(form.hidden);return;}
   if(action==='authorize-labels')return authorizeLabels(element.dataset.write==='true');
   if(action==='label-create'){
    const calendar=calendars.find(c=>c.id===$('#gc-target',modal).value)||editing.calendar;
    const result=await api(q('labels/create'),{calendar:calendar.id,name:$('#gc-label-name',modal).value,color:$('#gc-label-color',modal).value});
    calendar.labels=result.items;calendar.labels_ready=true;editing.calendar=calendar;appearances=new WeakMap();overviewCache=null;
    const select=$('#gc-label',modal),option=document.createElement('option');option.value=result.label.id;option.textContent=result.label.name;select.appendChild(option);select.value=result.label.id;select.disabled=false;
-   $('.gc-label-swatch',modal).style.background=result.label.backgroundColor;$('#gc-new-label',modal).hidden=true;return;
+   $('.gc-label-swatch',modal).style.background=result.label.backgroundColor;labelPopover(false,true);return;
   }
   if(action==='overview-retry'){mountOverview(true);return;}
   if(action==='overview-calendar'||action==='overview-event'){const item=action==='overview-event'?overviewCache?.items[Number(element.dataset.key)]:null,rect=item&&element.isConnected?element.getBoundingClientRect():null;if(item&&element.dataset.date)anchor=D.dateOnly(element.dataset.date);source='google';page='schedule';renderPage();if(item)await showEventDetails(item,element,rect);return;}
@@ -290,11 +295,13 @@ window.HotTurkeyGoogleCalendar=(()=>{
   if(action==='open-meeting')return external(editing.event.hangoutLink);
  }
  let highlightedCategory=null;
- function highlightCategory(key){
-  if(key===highlightedCategory)return;highlightedCategory=key;
+ function highlightCategory(key,force=false){
+  if(key===highlightedCategory&&!force)return;highlightedCategory=key;
   const root=document.querySelector('#google-calendar');if(!root)return;
   root.querySelector?.('.gc-scroller')?.classList.toggle('gc-analysis-highlight',key!==null);
+  dayPopup?.classList.toggle('gc-analysis-highlight',key!==null);
   root.querySelectorAll?.('.gc-event').forEach(event=>event.classList.toggle('gc-analysis-match',key!==null&&event.dataset.gcCategory===key));
+  root.querySelectorAll?.('.gc-month-more').forEach(button=>button.classList.toggle('gc-analysis-match',key!==null&&JSON.parse(button.dataset.gcCategories||'[]').includes(key)));
   root.querySelectorAll?.('[data-gc-analysis]').forEach(row=>row.classList.toggle('gc-analysis-active',key!==null&&row.dataset.gcAnalysis===key));
  }
  for(const [enter,leave] of [['pointerover','pointerout'],['focusin','focusout']]){
@@ -318,6 +325,7 @@ window.HotTurkeyGoogleCalendar=(()=>{
  document.addEventListener('dblclick',event=>{const day=event.target.closest('.gc-day,.gc-month-day');if(!day||event.target.closest('.gc-event,button')||offline||!calendars.some(c=>['owner','writer','writerWithoutPrivateAccess'].includes(c.accessRole)))return;const date=D.dateOnly(day.dataset.date);if(day.classList.contains('gc-day')){const box=day.getBoundingClientRect(),minute=Math.min(1425,Math.max(0,Math.floor((event.clientY-box.top)/box.height*1440/15)*15));date.setMinutes(minute);}else date.setHours(9);editor(null,date).catch(e=>toast(e.message));});
  function restoreDrag(d){if(!d)return;d.el.setAttribute('style',d.style||'');d.el.classList.remove('dragging');for(const col of d.columns)col.day.classList.remove('gc-drop-target');}
  document.addEventListener('pointerdown',event=>{
+  const labelPopup=$('#gc-new-label',modal);if(modal.open&&labelPopup?.hidden===false&&!labelPopup.contains(event.target)&&!event.target.closest('[data-gc=label-new]'))labelPopover(false);
   if(event.button!==0||!visible()||offline||loading||modal.open||detailPopup||dayPopup)return;
   const el=event.target.closest('.gc-day>.gc-event,.gc-month .gc-event,.gc-all-strip>.gc-event');if(!el)return;
   const item=items[Number(el.dataset.key)],month=!!el.closest('.gc-month'),banner=!!el.closest('.gc-all-strip');if(!item||!D.editable(item)||!month&&!banner&&item.event.start.date)return;
@@ -348,7 +356,7 @@ window.HotTurkeyGoogleCalendar=(()=>{
   }catch(error){loading=false;paint();toast(error.message);}
  });
  document.addEventListener('pointercancel',()=>{restoreDrag(dragging);dragging=null;});
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&detailPopup){event.preventDefault();event.stopPropagation();closeEventDetails();return;}if(event.key==='Escape'&&dayPopup){event.preventDefault();event.stopPropagation();closeDayPopup();}},true);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal.open&&$('#gc-new-label',modal)?.hidden===false){event.preventDefault();event.stopPropagation();labelPopover(false,true);return;}if(event.key==='Escape'&&detailPopup){event.preventDefault();event.stopPropagation();closeEventDetails();return;}if(event.key==='Escape'&&dayPopup){event.preventDefault();event.stopPropagation();closeDayPopup();}},true);
  const monthWheel={last:0,total:0,switched:false};
  document.addEventListener('wheel',event=>{
   if(!visible()||view!=='month'||modal.open||dayPopup||!event.deltaY||event.ctrlKey||Math.abs(event.deltaX)>Math.abs(event.deltaY)||!event.target.closest('.gc-month'))return;

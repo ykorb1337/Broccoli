@@ -10,7 +10,7 @@ let fixtureEvents=[fixtureEvent];const response=path=>path.includes('/status')?{
 const c={Date:ClockDate,Intl,URL,URLSearchParams,Map,Set,page:'schedule',state:{blocks:[{id:'untouched'}]},localStorage:{getItem:()=>null,setItem(){}},document:{querySelector:selector=>selector==='#google-calendar'&&content.innerHTML.includes('id="google-calendar"')?root:null,querySelectorAll:()=>[],addEventListener:(name,fn)=>{(handlers[name]??=[]).push(fn);}},setInterval:fn=>timers.push(fn),setTimeout,clearTimeout,api:async(path,data)=>{calls.push({path,data});if(path.endsWith('/respond')){fixtureEvent.attendees[0].responseStatus=data.response;fixtureEvent.etag='v2';return fixtureEvent;}return response(path);},$:selector=>selector==='#content'?content:root,esc:value=>String(value??'').replace(/</g,'&lt;').replace(/"/g,'&quot;'),btn:()=>'',options:()=>'',field:()=>'',modal:{open:false},closeModal:()=>{},openModal:(...args)=>modals.push(args),toast:()=>{},showModalError:()=>{}};
 c.innerHeight=900;c.HotTurkeyGooglePicker={close(){},field(){return '';},zone(){return '';}};c.addEventListener=()=>{};c.window=c;vm.createContext(c);for(const file of ['google-calendar-data.js','google-calendar.js'])vm.runInContext(fs.readFileSync('web/'+file,'utf8'),c);
 c.innerWidth=1400;c.document.body={style:{},appendChild(node){popups.push(node);}};
-c.document.createElement=()=>({innerHTML:'',style:{},setAttribute(){},remove(){this.removed=true;},contains(target){return target.inDetail;},querySelector(){return {focus(){}};},getBoundingClientRect(){return {width:420,height:500};}});
+c.document.createElement=()=>({innerHTML:'',style:{},classList:{values:new Set(),toggle(key,on){on?this.values.add(key):this.values.delete(key);}},setAttribute(){},remove(){this.removed=true;},contains(target){return target.inDetail;},querySelector(){return {focus(){}};},getBoundingClientRect(){return {width:420,height:500};}});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  const before=JSON.stringify(c.state);assert(c.HotTurkeyGoogleCalendar.switcher().includes('拦截日程'));assert(!c.HotTurkeyGoogleCalendar.isSelected());
@@ -25,11 +25,12 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  // Hover/focus highlight only touches classes; it must not refetch or rebuild
  // the month, and moving between children of the same row must preserve it.
  const classes=()=>({values:new Set(),toggle(key,on){on?this.values.add(key):this.values.delete(key);}}),scroller={classList:classes()},match={dataset:{gcCategory:'Labs|#0b8043'},classList:classes()},other={dataset:{gcCategory:'Lectures|#4285f4'},classList:classes()},labelRow={dataset:{gcAnalysis:'Labs|#0b8043'},classList:classes(),contains:target=>target?.within===true};
- root.querySelector=selector=>selector==='.gc-scroller'?scroller:null;root.querySelectorAll=selector=>selector==='.gc-event'?[match,other]:[labelRow];
+ const hiddenMatch={dataset:{gcCategories:JSON.stringify(['Labs|#0b8043'])},classList:classes()},hiddenOther={dataset:{gcCategories:JSON.stringify(['Lectures|#4285f4'])},classList:classes()};
+ root.querySelector=selector=>selector==='.gc-scroller'?scroller:null;root.querySelectorAll=selector=>selector==='.gc-event'?[match,other]:selector==='.gc-month-more'?[hiddenMatch,hiddenOther]:[labelRow];
  const highlightWrites=rootWrites,highlightCalls=calls.length,target={closest:()=>labelRow};
- handlers.pointerover[0]({target,relatedTarget:null});assert(scroller.classList.values.has('gc-analysis-highlight'));assert(match.classList.values.has('gc-analysis-match'));assert(!other.classList.values.has('gc-analysis-match'));
+ handlers.pointerover[0]({target,relatedTarget:null});assert(scroller.classList.values.has('gc-analysis-highlight'));assert(match.classList.values.has('gc-analysis-match'));assert(!other.classList.values.has('gc-analysis-match'));assert(hiddenMatch.classList.values.has('gc-analysis-match'),'collapsed matching events highlight the more button');assert(!hiddenOther.classList.values.has('gc-analysis-match'));
  handlers.pointerout[0]({target,relatedTarget:{within:true}});assert(match.classList.values.has('gc-analysis-match'));
- handlers.pointerout[0]({target,relatedTarget:null});assert(!scroller.classList.values.has('gc-analysis-highlight'));assert(!match.classList.values.has('gc-analysis-match'));
+ handlers.pointerout[0]({target,relatedTarget:null});assert(!scroller.classList.values.has('gc-analysis-highlight'));assert(!match.classList.values.has('gc-analysis-match'));assert(!hiddenMatch.classList.values.has('gc-analysis-match'));
  assert.equal(rootWrites,highlightWrites);assert.equal(calls.length,highlightCalls);delete root.querySelector;delete root.querySelectorAll;
 
  const repeatedCalls=calls.length,repeatedWrites=rootWrites;c.HotTurkeyGoogleCalendar.render();assert.equal(calls.length,repeatedCalls);assert.equal(rootWrites,repeatedWrites,'selecting the current calendar keeps its DOM');
@@ -40,6 +41,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  let dayPane,focusReturned=false;root.appendChild=node=>{dayPane=node;};
  const more={dataset:{gc:'day-more',date:'2026-11-01'},disabled:false,isConnected:true,focus(){focusReturned=true;},closest:()=>({getBoundingClientRect:()=>({left:150,width:300,top:300})})};
  await handlers.click[0]({target:{closest:selector=>selector==='[data-gc]'?more:null}});assert(dayPane);
+ handlers.pointerover[0]({target,relatedTarget:null});assert(dayPane.classList.values.has('gc-analysis-highlight'),'expanded day popup participates in the same hover highlight');handlers.pointerout[0]({target,relatedTarget:null});assert(!dayPane.classList.values.has('gc-analysis-highlight'));
  const row={dataset:{gc:'event',key:'0'},disabled:false,get isConnected(){return !dayPane.removed;},getBoundingClientRect(){return this.isConnected?{left:150,right:400,top:350}:{left:0,right:0,top:0};},closest:()=>null};
  dayPane.contains=target=>target===row;row.closest=selector=>selector==='[data-gc]'?row:null;await handlers.click[0]({target:row});await tick();
  // The event target and the resolved button represent the same contained row.
