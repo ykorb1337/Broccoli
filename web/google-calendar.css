@@ -126,7 +126,7 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-today-list { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel); }
 .gc-today-row { justify-content:flex-start; display:grid; grid-template-columns:56px minmax(0,1fr); gap:14px; align-items:center; width:100%; text-align:left; padding:11px 14px; border:0; border-radius:0; box-shadow:none; background:transparent; }
 .gc-today-row+.gc-today-row { border-top:1px solid var(--line); }
-.gc-today-time { width:56px; text-align:left; flex:none; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.gc-today-time { width:56px; text-align:center; flex:none; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
 .gc-today-main { flex:1; text-align:left; border-left:3px solid var(--event-color,var(--accent)); padding-left:10px; min-width:0; }
 .gc-today-main b { display:block; font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gc-today-main small { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
