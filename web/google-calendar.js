@@ -226,7 +226,7 @@ window.HotTurkeyGoogleCalendar=(()=>{
    ${editing.series?'<p class="gc-event-meta full">正在编辑整组重复事件</p>':''}
    ${timeFields}
    ${event.recurringEventId?field('修改范围',`<select id="gc-scope" ${readOnly?'disabled':''}><option value="single">仅本次事件</option><option value="series" ${editing.series?'selected':''}>整组重复事件</option></select>`):field('重复',`<select id="gc-repeat" ${readOnly?'disabled':''}>${options({none:'不重复',DAILY:'每天',WEEKLY:'每周',MONTHLY:'每月',YEARLY:'每年',...(repeatKey==='custom'?{custom:'自定义重复规则'}:{})},repeatKey)}</select>`)}
-   ${field('提醒',`<select id="gc-reminder" ${readOnly?'disabled':''}>${options({default:'日历默认',none:'无',5:'提前 5 分钟',10:'提前 10 分钟',15:'提前 15 分钟',30:'提前 30 分钟',60:'提前 1 小时',1440:'提前 1 天',...(!['default','none','5','10','15','30','60','1440'].includes(reminder)?{[reminder]:'保留原提醒'}:{})},reminder)}</select>`)}
+   ${field('提醒',`<select id="gc-reminder" ${readOnly?'disabled':''}>${options({default:'全局默认',none:'无',5:'提前 5 分钟',10:'提前 10 分钟',15:'提前 15 分钟',30:'提前 30 分钟',60:'提前 1 小时',1440:'提前 1 天',...(!['default','none','5','10','15','30','60','1440'].includes(reminder)?{[reminder]:'保留原提醒'}:{})},reminder)}</select>`)}
    ${field('地点',`<input id="gc-location" value="${esc(event.location||'')}" maxlength="2000" ${readOnly?'readonly':''}>`)}
    ${field('参与者',`<input id="gc-attendees" value="${esc((event.attendees||[]).map(a=>a.email).filter(Boolean).join(', '))}" placeholder="邮箱，用逗号分隔" ${readOnly?'readonly':''}>`)}
    ${field('说明',`<textarea id="gc-description" maxlength="20000" ${readOnly?'readonly':''}>${esc(event.description||'')}</textarea>`,true)}

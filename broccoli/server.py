@@ -59,6 +59,8 @@ class Service:
         self.browser_notices=[]
         self.browser_notice_at=0
         self.stop=threading.Event()
+        from .calendar_reminders import CalendarReminders
+        self.calendar_reminders=CalendarReminders(self.store,self.get_google_calendar)
         try:self.http=ThreadingHTTPServer(("127.0.0.1",port),self.handler())
         except Exception:
             self.singleton.close()
@@ -94,6 +96,12 @@ class Service:
                 self.tracking_error='无法打开统计资料。请检查资料文件与磁盘空间，然后重试。'
                 LOG.exception('Statistics unavailable; enforcement service remains active')
                 return False
+
+    def get_google_calendar(self):
+        from .google_calendar import GoogleCalendar
+        with self.google_calendar_lock:
+            if self.google_calendar is None:self.google_calendar=GoogleCalendar(self.store.directory)
+            return self.google_calendar
 
     def handler(self):
         service=self
@@ -161,10 +169,12 @@ class Service:
             if (interval[2] if interval else block['break'])['type']=='meal':return e.request_break(block['id'],data)
         if path.startswith('/api/google-calendar/'):
             if not self.authorized(headers):raise PolicyError('请先输入设置密码')
-            from .google_calendar import GoogleCalendar,dispatch
-            with self.google_calendar_lock:
-                if self.google_calendar is None:self.google_calendar=GoogleCalendar(self.store.directory)
-            return dispatch(self.google_calendar,path[len('/api/google-calendar/'):],method,data,query)
+            action=path[len('/api/google-calendar/'):]
+            if action=='reminders/status' and method=='GET':return self.calendar_reminders.status()
+            from .google_calendar import dispatch
+            result=dispatch(self.get_google_calendar(),action,method,data,query)
+            if method=='POST' and action in {'save','delete','respond','disconnect','configure'}:self.calendar_reminders.invalidate()
+            return result
         if path.startswith('/api/tracking/'):
             if not self.authorized(headers):raise PolicyError('请先输入设置密码')
             if path=='/api/tracking/retry' and method=='POST':
@@ -249,6 +259,7 @@ class Service:
             snapshot["enforcement"]={"enabled":self.enforce,"worker_error":self.worker_error,"status":self.worker_state,"helper_restarts":max(0,self.helper_starts-1),"desktop_connected":self.worker_state=="running" and helper is not None and helper.poll() is None and self.desktop_at>time.monotonic()-10,"launch_agent":(Path.home()/"Library/LaunchAgents/local.hotturkey.service.plist").exists()}
             snapshot["authenticated"]=self.authorized(headers)
             snapshot['tracking']={'version':1,'available':self.tracking is not None,'error':self.tracking_error,'connected':bool(self.tracking_recorder and self.tracking_recorder.status['connected'])}
+            snapshot['calendar_reminders']=self.calendar_reminders.status()
             snapshot['enforcement']['extension_path']=str(ROOT/'extension')
             snapshot['enforcement']['recovery_input_protocol']=getattr(self,'device_recovery_protocol',0)
             if not self.authorized(headers) and self.store.state["settings"]["protect_overview"]:
@@ -355,15 +366,19 @@ class Service:
                     except Exception:LOG.exception('Manual tag clock tick failed')
                 if self.stop.wait(1):return
         clock_thread=threading.Thread(target=clocks,daemon=True);clock_thread.start()
+        reminder_thread=threading.Thread(target=self.calendar_reminders.run,args=(self.stop,),daemon=True) if self.enforce else None
+        if reminder_thread:reminder_thread.start()
         LOG.info("HotTurkey listening on loopback port %d; enforcement=%s",self.port,self.enforce)
         try: self.http.serve_forever()
         finally:
             self.stop.set()
+            self.calendar_reminders.stop.set()
             if self.google_calendar:self.google_calendar.close()
             self.http.server_close()
             worker_thread.join(timeout=5)
             if tracker_thread:tracker_thread.join(timeout=6)
             clock_thread.join(timeout=5)
+            if reminder_thread:reminder_thread.join(timeout=1)
             if self.tracking:self.tracking.close()
             self.singleton.close()
 

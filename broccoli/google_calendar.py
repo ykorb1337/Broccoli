@@ -215,7 +215,7 @@ class GoogleCalendar:
         self.label_cache.pop(calendar,None)
         return {'label':label,'items':[{k:item[k] for k in ['id','name','backgroundColor'] if k in item} for item in labels]}
     @synchronized
-    def events(self,calendar,since,until):
+    def events(self,calendar,since,until,*,cache=True):
         a=moment({'dateTime':since})[1];b=moment({'dateTime':until})[1]
         if not a<b<=a+dt.timedelta(days=93):raise PolicyError('请选择不超过 93 天的日期范围')
         path='calendars/'+identifier(calendar)+'/events';key=json.dumps([calendar,since,until]);items=[];page=None
@@ -227,14 +227,15 @@ class GoogleCalendar:
                 if not page:break
             else:raise PolicyError('事件数量过多，请缩小日期范围')
             value={'items':items,'timeZone':result.get('timeZone','UTC'),'synced_at':time.time(),'offline':False}
-            with self.lock:
-                cache=json.loads(self.cache_path.read_text()) if self.cache_path.exists() else {};cache[key]=value
-                while len(cache)>8:cache.pop(next(iter(cache)))
-                if len(json.dumps(cache))<=10*1024*1024:private_json(self.cache_path,cache)
+            if cache:
+                with self.lock:
+                    records=json.loads(self.cache_path.read_text()) if self.cache_path.exists() else {};records[key]=value
+                    while len(records)>8:records.pop(next(iter(records)))
+                    if len(json.dumps(records))<=10*1024*1024:private_json(self.cache_path,records)
             return value
         except PolicyError as error:
             with self.lock:
-                cached=json.loads(self.cache_path.read_text()).get(key) if self.cache_path.exists() and self.credentials() else None
+                cached=json.loads(self.cache_path.read_text()).get(key) if cache and self.cache_path.exists() and self.credentials() else None
             if cached:return {**cached,'offline':True,'error':str(error)}
             raise
     @synchronized

@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     "block_task_manager": False, "block_settings": False, "block_installer": False,
     "notifications": True, "warning_minutes": [2, 5], "retention_days": 90,
     "week_start": "monday", "clock_24": True, "calendar_overview_future": True,
+    "calendar_notifications": False, "calendar_reminder_minutes": [10],
     "settings_password": None, "protect_overview": False,
     "device_recovery_hash":None,
     "open_at_login": False, "start_in_tray": False,

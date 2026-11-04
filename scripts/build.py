@@ -30,6 +30,7 @@ def main():
     targets.append(('SessionAgent.swift','HotTurkeySessionAgent',['AppKit','CoreGraphics','Security']))
     targets.append(('BrowserHost.swift','HotTurkeyBrowserHost',['Foundation','Security']))
     targets.append(('TrackingAgent.swift','HotTurkeyTracker',['AppKit','ApplicationServices','CoreGraphics','ImageIO','UniformTypeIdentifiers']))
+    targets.append(('CalendarNotice.swift','BroccoliCalendarNotice',['AppKit']))
     if args.qa:
         targets.extend([("PeerFixture.swift","HotTurkeyPeerFixture",["Foundation"]),("PolicyClient.swift","HotTurkeyPolicyClientQA",["Foundation"])])
         targets.append(('SessionAgent.swift','HotTurkeySessionAgentQA',['AppKit','CoreGraphics','Security']))
@@ -83,6 +84,7 @@ def main():
     shutil.copy2(BUILD/'HotTurkeySessionAgent',project/'build/HotTurkeySessionAgent')
     shutil.copy2(BUILD/'HotTurkeyBrowserHost',project/'build/HotTurkeyBrowserHost')
     shutil.copy2(BUILD/'HotTurkeyTracker',project/'build/HotTurkeyTracker')
+    shutil.copy2(BUILD/'BroccoliCalendarNotice',project/'build/BroccoliCalendarNotice')
     python=resources/'python'
     third_party=resources/'ThirdParty/Python'
     if python.exists():shutil.rmtree(python)

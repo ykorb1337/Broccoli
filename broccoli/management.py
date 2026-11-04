@@ -27,6 +27,8 @@ def settings_update(engine,data):
         updated[key]=integer(updated[key],low,high,key)
     if not isinstance(updated['warning_minutes'],list):raise PolicyError('提醒时间无效')
     updated['warning_minutes']=[integer(value,1,1440,'提醒分钟') for value in updated['warning_minutes']]
+    if not isinstance(updated['calendar_reminder_minutes'],list) or len(updated['calendar_reminder_minutes'])>20:raise PolicyError('日历提醒时间无效')
+    updated['calendar_reminder_minutes']=sorted(set(integer(value,0,40320,'日历提醒分钟') for value in updated['calendar_reminder_minutes']))
     return updated
 
 
