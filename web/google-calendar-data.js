@@ -53,7 +53,7 @@ globalThis.HotTurkeyGoogleData=(()=>{
   };
   return {start:shift(event.start),end:shift(event.end)};
  }
- function monthCapacity(height){return Math.max(2,Math.floor((height-50)/22));}
+ function monthCapacity(height){return Math.max(3,Math.floor((height-28)/22));}
  function classification(event){
   const text=String(event.summary||'');
   const rules=[

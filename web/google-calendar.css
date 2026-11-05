@@ -255,7 +255,7 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-month-frame { height:100%; min-height:596px; min-width:720px; overflow:hidden; }
 .gc-month-week { position:relative; grid-column:1 / -1; display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); min-height:0; }
 .gc-month-day { position:relative; }
-.gc-month-day .gc-month-more { position:absolute; bottom:4px; left:5px; right:5px; width:calc(100% - 10px); }
+.gc-month-day .gc-month-more { position:absolute; top:5px; right:5px; width:auto; max-width:calc(100% - 36px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .gc-month-events { position:absolute; top:27px; left:0; right:0; display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); grid-auto-rows:22px; pointer-events:none; }
 .gc-month-events .gc-event { width:auto; height:20px; min-height:20px; padding:1px 5px; margin:1px 5px; pointer-events:auto; }
 .gc-month-events .gc-event b { font-size:12px; font-weight:500; }

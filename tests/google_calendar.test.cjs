@@ -23,5 +23,5 @@ for(const [summary,color] of [['DDL · HW6','#d50000'],['Lecture · Theory','#42
 assert.equal(D.eventAppearance({calendar:{primary:true,labels:[{id:'one',name:'Custom',backgroundColor:'#112233'}]},event:{summary:'DDL',eventLabelId:'one',colorId:'11'}},{11:{background:'#ff0000'}}).color,'#112233');
 assert.equal(D.eventAppearance({calendar:{primary:true},event:{summary:'Lecture',colorId:'3'}},{3:{background:'#aa00ff'}}).color,'#aa00ff');
 assert.equal(D.eventAppearance({calendar:{backgroundColor:'#008844'},event:{summary:'Holiday',start:{date:'2026-11-01'},end:{date:'2026-11-02'}}}).color,'#008844');
-assert.equal(D.monthCapacity(94),2);assert.equal(D.monthCapacity(108),2);assert.equal(D.monthCapacity(138),4);assert.equal(D.monthCapacity(180),5);
+assert.equal(D.monthCapacity(94),3);assert.equal(D.monthCapacity(108),3);assert.equal(D.monthCapacity(138),5);assert.equal(D.monthCapacity(180),6);
 console.log('30 Google calendar view, midnight, all-day, access, zone and DST scenarios passed');
