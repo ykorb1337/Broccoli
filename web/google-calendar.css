@@ -1,7 +1,7 @@
 .schedule-source { align-self:center; flex:none; display:flex; gap:2px; padding:3px; border-radius:8px; background:var(--field); }
 .schedule-source button { min-width:110px; min-height:29px; border:0; padding:4px 14px; border-radius:6px; box-shadow:none; color:var(--muted); background:transparent; }
 .schedule-source button[aria-pressed="true"] { color:var(--ink); background:var(--panel); box-shadow:0 1px 4px #00000016; font-weight:600; }
-.google-calendar { min-height:0; flex:1; display:flex; flex-direction:column; gap:14px; }
+.google-calendar { min-height:0; flex:1; display:flex; flex-direction:column; gap:8px; }
 .gc-connect { flex:1; min-height:320px; display:flex; align-items:center; justify-content:center; }
 .gc-connect-inner { max-width:420px; text-align:center; }
 .gc-mark { color:var(--accent); font-size:42px; font-weight:500; margin-bottom:12px; }
@@ -39,7 +39,7 @@
 .gc-event b { display:block; margin:0; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gc-event small { display:block; font-size:12px; white-space:nowrap; }
 .gc-resize { position:absolute; bottom:0; left:0; right:0; height:7px; cursor:ns-resize; }
-.gc-month { display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); grid-template-rows:32px repeat(6,minmax(100px,1fr)); min-width:720px; min-height:680px; height:100%; }
+.gc-month { display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); grid-template-rows:32px repeat(6,minmax(80px,1fr)); min-width:720px; min-height:512px; height:100%; }
 .gc-month-day { padding:5px; border-top:1px solid var(--line); border-left:1px solid var(--line); min-width:0; overflow:hidden; }
 .gc-month-day.outside { background:var(--hover); color:var(--muted); }
 .gc-month-day>button:first-child { display:flex; border:0; box-shadow:none; background:transparent; width:27px; min-height:27px; padding:2px; margin-bottom:5px; font-variant-numeric:tabular-nums; }
@@ -175,7 +175,7 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 
 .gc-agenda .gc-agenda-time[rowspan] { vertical-align:top; }
 
-.gc-surface { display:flex; flex:1; flex-direction:column; gap:14px; min-height:0; }
+.gc-surface { display:flex; flex:1; flex-direction:column; gap:8px; min-height:0; }
 .gc-workspace { position:relative; display:flex; flex:1; min-height:0; gap:14px; }
 .gc-workspace>.gc-scroller { min-width:0; }
 .gc-refresh { width:30px; min-width:30px; height:30px; padding:5px; justify-content:center; }
@@ -252,7 +252,7 @@ dialog[data-kind="calendar-event"] { --modal-width:680px; width:var(--modal-widt
 .gc-today-time.timed time { display:block; line-height:15px; }
 .gc-today-time.timed i { display:block; width:1px; height:7px; background:var(--muted); opacity:.4; }
 
-.gc-month-frame { height:100%; min-height:680px; min-width:720px; overflow:hidden; }
+.gc-month-frame { height:100%; min-height:512px; min-width:720px; overflow:hidden; }
 .gc-month-week { position:relative; grid-column:1 / -1; display:grid; grid-template-columns:repeat(7,minmax(100px,1fr)); min-height:0; }
 .gc-month-day { position:relative; }
 .gc-month-day .gc-month-more { position:absolute; bottom:4px; left:5px; right:5px; width:calc(100% - 10px); }
