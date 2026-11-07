@@ -38,6 +38,8 @@ let count=0;
  assert.match((await message('add-site-options',{}, {...popup,frameId:1})).error,/弹窗/);assert.equal(requests.length,0);count++;
  requests=[];const blockedSender={url:blockedURL,tab:tabs.get(7),frameId:0};
  assert((await message('blocked-agenda',{},blockedSender)).days.length);assert.deepEqual(requests.at(-1),{op:'blocked-agenda'});count++;
+ requests=[];assert((await message('blocked-agenda',{tab:7},{url:blockedURL})).days.length);assert.deepEqual(requests.at(-1),{op:'blocked-agenda'});count++;
+ requests=[];assert((await message('blocked-agenda',{tab:8},{url:blockedURL})).error);assert.equal(requests.length,0);count++;
  for(const sender of [popup,{...blockedSender,frameId:1},{...blockedSender,url:'https://evil.example'}]){requests=[];assert((await message('blocked-agenda',{},sender)).error);assert.equal(requests.length,0);count++;}
  let value=await message('add-site-options');assert.equal(value.page.url,'https://example.com/a');assert.equal(value.page.domain,'example.com');assert.equal(value.blocks[0].id,'a');count++;
  let page=value.page;

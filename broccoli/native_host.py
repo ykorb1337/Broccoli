@@ -46,7 +46,8 @@ def main():
             with urllib.request.urlopen(request,timeout=5) as response: result=json.load(response)
             if message.get('op')=='blocked-agenda':
                 from .blocked_agenda import cached_agenda
-                result=cached_agenda(default_data()) if result.get('settings',{}).get('blocked_page_calendar') is True else {'days':[]}
+                enabled=result.get('settings',{}).get('blocked_page_calendar') is True
+                result={'enabled':enabled,**(cached_agenda(default_data()) if enabled else {'days':[]})}
             if message.get('document_protocol')==1:result=documents.pack(None,message['op'],'',result)
         except PolicyError as exc:
             result={'error':str(exc),'policy':True}

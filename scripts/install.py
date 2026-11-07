@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import fcntl
+import hashlib
 import json
 import os
 import plistlib
@@ -33,6 +34,12 @@ def ensure_unlocked(directory):
         engine=Engine(store,boot_id=boot_id())
         if any(engine.locked(b) for b in store.state['blocks']):raise ValueError('有规则仍处于锁定状态，不能更新或卸载后台')
     finally:store.db.close()
+
+
+def unpacked_extension_id(directory):
+    """Chromium identifies an unpacked extension by its canonical directory."""
+    digest=hashlib.sha256(str(Path(directory).resolve()).encode()).hexdigest()[:32]
+    return ''.join(chr(ord('a')+int(value,16)) for value in digest)
 
 
 def manual_server(directory):
@@ -104,6 +111,7 @@ def install_files(app_source,target,app_target,launch,browser_files,extension_id
     target.mkdir(parents=True,exist_ok=True,mode=0o700);target.chmod(0o700)
     app_target.parent.mkdir(parents=True,exist_ok=True)
     runtime=target/'runtime';host=target/'native-host';receipt=target/'installation.json'
+    extension_ids.add(unpacked_extension_id(runtime/'extension'))
     ui_launch=launch.with_name('local.hotturkey.desktop.plist')
     metadata=[launch,host,receipt,ui_launch]+browser_files
     previous={p:(p.read_bytes(),p.stat().st_mode&0o777) if p.exists() else None for p in metadata}

@@ -31,7 +31,7 @@ class BlockedAgendaTests(unittest.TestCase):
         self.assertEqual([d['date'] for d in result['days']],['2026-11-07','2026-11-08','2026-11-09'])
         self.assertEqual(len(result['days'][0]['items']),2)
         self.assertNotIn('private',json.dumps(result))
-        self.assertEqual(set(result['days'][0]['items'][0]),{'title','declined'})
+        self.assertEqual(set(result['days'][0]['items'][0]),{'title','declined','color'})
 
     def test_latest_covering_feed_prevents_deleted_events_reappearing(self):
         newer=json.dumps(['private@example.com','2026-11-07T00:00:00-05:00','2026-11-08T00:00:00-05:00'])
@@ -80,6 +80,6 @@ class BlockedAgendaTests(unittest.TestCase):
                 response=io.BytesIO(json.dumps(state).encode())
                 with patch.object(native_host,'default_data',return_value=path),patch.object(native_host.urllib.request,'urlopen',return_value=response) as request,patch('broccoli.blocked_agenda.cached_agenda',return_value={'days':[]}) as summary,patch.object(native_host.sys,'stdin',types.SimpleNamespace(buffer=stream)),patch.object(native_host.sys,'stdout',types.SimpleNamespace(buffer=out)):
                     native_host.main()
-                payload=out.getvalue();result=json.loads(payload[4:]);self.assertEqual(result,{'days':[]})
+                payload=out.getvalue();result=json.loads(payload[4:]);self.assertEqual(result,{'enabled':enabled,'days':[]})
                 self.assertEqual(request.call_args.args[0].get_method(),'GET')
                 self.assertEqual(summary.call_count,1 if enabled else 0)

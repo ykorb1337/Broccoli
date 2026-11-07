@@ -2,9 +2,19 @@
 import datetime as dt
 import json
 import math
+import re
 from pathlib import Path
 
 MAX_AGE = 86400
+
+
+def event_color(event, calendar):
+    palette={'1':'#7986cb','2':'#33b679','3':'#8e24aa','4':'#e67c73','5':'#f6bf26','6':'#f4511e','7':'#039be5','8':'#616161','9':'#3f51b5','10':'#0b8043','11':'#d50000'}
+    if str(event.get('colorId')) in palette:return palette[str(event['colorId'])]
+    title=str(event.get('summary',''))
+    for pattern,color in [(r'\b(DDL|deadlines?|due)\b','#d50000'),(r'\brelease\b','#f6bf26'),(r'\b(labs?|coding lab)\b','#0b8043'),(r'\b(campus|registration|appointment)\b','#009688'),(r'\b(exams?|midterm|programming test)\b','#8e24aa')]:
+        if re.search(pattern,title,re.I):return color
+    return '#0b8043' if 'holiday' in calendar.lower() else '#4285f4'
 
 
 def agenda_from_cache(cache, now=None):
@@ -52,7 +62,7 @@ def agenda_from_cache(cache, now=None):
                     title = event.get('summary') or '未命名事件'
                     if not isinstance(title, str):continue
                     declined = any(a.get('self') and a.get('responseStatus') == 'declined' for a in event.get('attendees', []) if isinstance(a, dict))
-                    rows.append({'title':title[:200], 'declined':bool(declined)})
+                    rows.append({'title':title[:200], 'declined':bool(declined), 'color':event_color(event,calendar)})
                 except (KeyError, ValueError, TypeError, AttributeError):continue
         if rows:
             rows.sort(key=lambda row:(row['declined'],row['title'].casefold()))

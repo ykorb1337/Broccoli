@@ -54,6 +54,16 @@ class UserInstallationTests(unittest.TestCase):
         other=self.root/'other.app';self.old.rename(other);self.old.symlink_to(other)
         with self.assertRaises(ValueError):self.install()
         self.assertTrue((other/'keep').exists());self.assertFalse(any(len(c)>1 and c[1] in {'bootout','bootstrap'} for c in self.commands))
+    def test_native_bridge_accepts_canonical_extension_after_rename(self):
+        manifest=self.home/'Library/Application Support/Microsoft Edge/NativeMessagingHosts/local.hotturkey.bridge.json'
+        manifest.parent.mkdir(parents=True);legacy='chrome-extension://'+'a'*32+'/'
+        manifest.write_text(json.dumps({'allowed_origins':[legacy]}))
+        installer.install(self.source,self.target,self.app,self.launch,[manifest],set())
+        origins=json.loads(manifest.read_text())['allowed_origins']
+        self.assertIn(legacy,origins)
+        self.assertIn('chrome-extension://'+installer.unpacked_extension_id(self.target/'runtime/extension')+'/',origins)
+        self.assertEqual(len(origins),2)
+
     def test_only_exact_current_user_desktop_processes_are_closed(self):
         self.patches[3].stop()
         try:
