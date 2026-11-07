@@ -1,1 +1,13 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Broccoli</title><link rel="stylesheet" href="blocked.css"><script src="blocked.js" defer></script></head><body><main><img src="icon.svg" alt="Broccoli"><p class="eyebrow">A LITTLE SPACE TO FOCUS</p><h1>把注意力，留给真正重要的事。</h1><p class="message">这个页面正在你的专注边界之外。深呼吸，再回到手头的事情。</p><div id="details"></div><section id="tab-section" hidden><h2>仅放行当前标签页</h2><p class="message">只跳过所选规则的网站拦截。其他标签页、应用及其他规则继续生效；到期或关闭标签页后失效。</p><div id="tab-actions"></div></section><p id="tab-unavailable" class="message" hidden>更新桌面后台和浏览器扩展后，可临时放行当前标签页。</p><div id="breaks"></div><p id="error" role="status"></p><button id="retry">重新检查</button><small>Broccoli · 你为自己做出的选择</small></main></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Broccoli</title><link rel="stylesheet" href="blocked.css"><script src="blocked.js" defer></script></head>
+<body><main>
+<header class="brand"><img src="icon.svg" alt=""><span>Broccoli</span></header>
+<section class="hero"><h1 id="heading">此网站已被拦截</h1><p id="website"></p><p id="details"></p><button id="retry" class="primary">重新检查</button></section>
+<section id="agenda" hidden aria-labelledby="agenda-heading"><h2 id="agenda-heading">近三日</h2><div id="agenda-days"></div></section>
+<details id="options" hidden><summary>休息与放行</summary><div class="options-body">
+<section id="tab-section" hidden><h2>当前标签页</h2><p class="note">仅放行此标签页，其他拦截保持生效。</p><div id="tab-actions"></div></section>
+<section id="break-section" hidden><h2>规则休息</h2><div id="breaks"></div></section>
+</div></details>
+<p id="error" role="status" aria-live="polite"></p>
+</main></body></html>

@@ -23,6 +23,7 @@ context.remote=async(op,data)=>{
  requests.push({op,...data});
  if(offline)return {error:'offline'};
  if(op==='sync')return {...policy,tab_grants:[]};
+ if(op==='blocked-agenda')return {days:[{date:'2026-11-07',items:[{title:'Study',declined:false}]}]};
  if(op==='add-site-options')return {blocks:[{id:'a',name:'A',enabled:true,locked:true,mode:'continuous'}]};
  if(op==='add-site')return {ok:true,target:data.scope==='page'?'https://example.com/a':'example.com',added:true,block:{enabled:true,mode:'continuous'}};
  return {error:'unsupported'};
@@ -35,6 +36,9 @@ let count=0;
  await new Promise(setImmediate);requests=[];
  assert.match((await message('add-site-options',{}, {url:'https://evil.example',tab:tabs.get(7),frameId:0})).error,/弹窗/);assert.equal(requests.length,0);count++;
  assert.match((await message('add-site-options',{}, {...popup,frameId:1})).error,/弹窗/);assert.equal(requests.length,0);count++;
+ requests=[];const blockedSender={url:blockedURL,tab:tabs.get(7),frameId:0};
+ assert((await message('blocked-agenda',{},blockedSender)).days.length);assert.deepEqual(requests.at(-1),{op:'blocked-agenda'});count++;
+ for(const sender of [popup,{...blockedSender,frameId:1},{...blockedSender,url:'https://evil.example'}]){requests=[];assert((await message('blocked-agenda',{},sender)).error);assert.equal(requests.length,0);count++;}
  let value=await message('add-site-options');assert.equal(value.page.url,'https://example.com/a');assert.equal(value.page.domain,'example.com');assert.equal(value.blocks[0].id,'a');count++;
  let page=value.page;
  assert.equal((await message('add-site',{...page,id:'a',scope:'domain',websites:['evil.example'],applications:['evil'],exceptions:['*'],enabled:false,password:'manager'})).ok,true);

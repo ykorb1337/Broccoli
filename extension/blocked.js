@@ -1,11 +1,11 @@
 (()=>{
 'use strict';
-const api=typeof browser!=='undefined'?browser:chrome;
+const api=typeof browser!=='undefined'?browser:typeof chrome!=='undefined'?chrome:null;
 let info={blocks:[],url:''};
 try{const raw=location.hash.slice(1);info=raw.startsWith('url=')?{url:raw.slice(4),blocks:[]}:JSON.parse(decodeURIComponent(raw));}catch{}
 const error=document.querySelector('#error');
 function message(text){error.textContent=text;}
-async function send(op,data){return api.runtime.sendMessage({op,data});}
+async function send(op,data){if(!api?.runtime)throw Error('extension unavailable');return api.runtime.sendMessage({op,data});}
 async function requestBreak(id,answer){
   const result=await send('break',{id,...(answer!==undefined?{answer}:{})});
   if(result.error){message(result.error);return;}
@@ -31,7 +31,7 @@ function tabAction(block){
   const controls=document.createElement('div');row.append(controls);
   let answer;
   const button=document.createElement('button');
-  button.textContent=method==='text'?'输入文本后放行':method==='password'?'输入密码后放行':'临时放行此标签页';
+  button.textContent=method==='text'?'输入文本':method==='password'?'输入密码':'临时放行';
   button.onclick=async()=>{
     button.disabled=true;message('');
     try{
@@ -44,7 +44,7 @@ function tabAction(block){
         answer.maxLength=5000;answer.setAttribute('aria-label',result.method==='password'?'规则密码':'验证文本');
         if(result.method==='password'){answer.type='password';answer.autocomplete='off';answer.placeholder='输入此规则的锁定密码';}
         else{answer.placeholder='手动输入以上文本';answer.addEventListener('paste',e=>e.preventDefault());answer.addEventListener('drop',e=>e.preventDefault());}
-        controls.append(answer);button.textContent='验证并放行此标签页';answer.focus();
+        controls.append(answer);button.textContent='验证并放行';answer.focus();
       }
     }catch{message('无法连接扩展，请重新检查。');}
     finally{button.disabled=false;}
@@ -55,7 +55,9 @@ async function load(){
   const decision=await send('check',{url:info.url,record:false});
   if(decision.error){message(decision.error);return;}
   info.blocks=decision.blocks||[];
-  document.querySelector('#details').textContent=info.blocks.length?'由 '+info.blocks.map(b=>b.name).join('、')+' 守护':'此网页目前没有命中拦截规则。';
+  document.querySelector('#details').textContent=info.blocks.length?info.blocks.map(b=>b.name).join(' · '):'';
+  document.querySelector('#heading').textContent=decision.blocked?'此网站已被拦截':'此网站可以访问';
+  document.querySelector('#retry').textContent=decision.blocked?'重新检查':'继续访问';
   const result=await send('status');
   const ids=info.blocks.map(b=>b.id);
   const breaks=document.querySelector('#breaks');breaks.replaceChildren();
@@ -65,13 +67,14 @@ async function load(){
     if(result.tab_unblock_available===1)tabs.append(tabAction(block));
     if(!['text','delay','meal'].includes(block.break?.type))continue;
     const row=document.createElement('div');row.className='break-item';row.dataset.block=block.id;
-    const label=document.createElement('span');label.textContent=block.name+' · ';
-    const button=document.createElement('button');button.textContent=block.break.type==='meal'?'用餐休息（这条规则）':block.break.type==='text'?'输入文本以休息（整条规则）':'开始等待以休息（整条规则）';button.disabled=block.break.type==='meal'&&!block.break.left;button.onclick=()=>requestBreak(block.id);
+    const label=document.createElement('span');label.textContent=block.name;
+    const button=document.createElement('button');button.textContent=block.break.type==='meal'?'用餐休息':block.break.type==='text'?'输入文本休息':'等待后休息';button.disabled=block.break.type==='meal'&&!block.break.left;button.onclick=()=>requestBreak(block.id);
     row.append(label,button);breaks.append(row);
   }
   const webPage=ids.length&&/^https?:\/\//.test(info.url);
   document.querySelector('#tab-section').hidden=!webPage||result.tab_unblock_available!==1;
-  document.querySelector('#tab-unavailable').hidden=!webPage||result.tab_unblock_available===1;
+  document.querySelector('#break-section').hidden=!breaks.children.length;
+  document.querySelector('#options').hidden=document.querySelector('#tab-section').hidden&&!breaks.children.length;
 }
 async function retry(){
   if(!/^https?:|^file:/.test(info.url)){message('请在地址栏重新打开原网址以检查拦截状态。');return;}
@@ -79,6 +82,27 @@ async function retry(){
   if(!result.blocked&&!result.error)location.replace(info.url);
   else{message(result.error||'仍有规则在拦截此标签页。');await load();}
 }
+function renderAgenda(result){
+  const root=document.querySelector('#agenda-days');root.replaceChildren();
+  const today=new Date();today.setHours(0,0,0,0);
+  for(const day of (Array.isArray(result.days)?result.days:[]).slice(0,3)){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day.date)||!Array.isArray(day.items)||!day.items.length)continue;
+    const date=new Date(day.date+'T00:00:00');if(!Number.isFinite(+date))continue;
+    const row=document.createElement('div');row.className='agenda-day';
+    const stamp=document.createElement('div');stamp.className='agenda-date';
+    const title=document.createElement('strong');title.textContent=day.date===localDay(today)?'今天':day.date===localDay(new Date(today.getFullYear(),today.getMonth(),today.getDate()+1))?'明天':date.toLocaleDateString('zh-CN',{weekday:'short'});
+    const subtitle=document.createElement('small');subtitle.textContent=date.toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});stamp.append(title,subtitle);
+    const content=document.createElement('div'),list=document.createElement('ul');list.className='agenda-events';
+    const item=value=>{const el=document.createElement('li');el.textContent=String(value.title||'未命名事件').slice(0,200);if(value.declined)el.className='declined';return el;};
+    day.items.slice(0,3).forEach(value=>list.append(item(value)));content.append(list);
+    if(day.items.length>3){const more=document.createElement('details');more.className='agenda-more';const summary=document.createElement('summary');summary.textContent='另外 '+(day.items.length-3)+' 项';const extra=document.createElement('ul');extra.className='agenda-events';day.items.slice(3,20).forEach(value=>extra.append(item(value)));more.append(summary,extra);content.append(more);}
+    row.append(stamp,content);root.append(row);
+  }
+  document.querySelector('#agenda').hidden=!root.children.length;
+}
+function localDay(date){return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');}
+try{const url=new URL(info.url);document.querySelector('#website').textContent=url.protocol==='file:'?decodeURIComponent(url.pathname.split('/').pop()||'本地文件'):url.hostname;}catch{}
+send('blocked-agenda',{}).then(result=>{if(!result?.error)renderAgenda(result||{});}).catch(()=>{});
 document.querySelector('#retry').onclick=()=>retry().catch(()=>message('无法连接扩展，请重新检查。'));
 load().catch(()=>message('无法连接扩展，请重新检查。'));
 
