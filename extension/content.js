@@ -2,11 +2,14 @@
 (()=>{
 const api=typeof browser!=='undefined'?browser:chrome;
 if(['127.0.0.1','localhost'].includes(location.hostname))return;
-let checking=false,last='',overlay=null,hidden=false,initial=true,channelWait=0;
+let checking=false,last='',initial=true,channelWait=0;
 const root=document.documentElement;
-const originalVisibility=root?.style.visibility||'';
-if(root){root.style.visibility='hidden';hidden=true;}
-function reveal(){if(hidden&&document.documentElement){document.documentElement.style.visibility=originalVisibility;hidden=false;}}
+// Each installed instance owns its gate. Never snapshot another instance's
+// temporary inline visibility and restore it as the page's permanent state.
+const gate=document.createElement('style');
+gate.textContent='html{visibility:hidden!important}';
+if(root)root.append(gate);
+function reveal(){gate.remove();}
 function channels(){if(!/(^|\.)youtube\.com$/.test(location.hostname))return [];return [...document.querySelectorAll('ytd-watch-metadata #owner a[href], #upload-info a[href], link[itemprop="url"][href*="/channel/"], ytd-reel-player-header-renderer a[href]')].map(a=>a.href).filter(u=>/youtube\.com\/(?:@|channel\/|c\/|user\/)/.test(u));}
 async function run(){if(checking)return;checking=true;try{const list=channels();const result=await api.runtime.sendMessage({op:'check',data:{url:location.href,channels:list}});if(result.blocked){
   // YouTube channel exceptions need channel metadata before a final decision.
