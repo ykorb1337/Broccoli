@@ -5,7 +5,7 @@ window.HotTurkeyMedia={create({model,apiCall,attr,time,resolveBar}){
  let sequence=0,epoch=0,context=null,pending=null,pressed=null,dialog=null,preview=null,origin=null,objectURL='',loadedId='',originalURL='',index=[],indexKey='',indexAt=0,indexPending=null;
  Object.assign(model,{shot:null,shotMode:'idle',shotURL:'',shotMessage:''});
  const scale=()=>Number(document.body.style.zoom)||1;
- const available=()=>page==='statistics'&&['day','untagged'].includes(model.view)&&!modal.open;
+ const available=()=>page==='statistics'&&['day','untagged'].includes(model.view)&&!modal.open&&!document.body.dataset?.trackingMenu;
  const eligible=element=>element?.closest?.('.mt-activity');
  function clearImage(){objectURL='';loadedId='';model.shotURL='';model.shot=null;}
  function clearCache(){epoch++;for(const url of cache.values())URL.revokeObjectURL(url);cache.clear();inflight.clear();index=[];indexKey='';indexAt=0;indexPending=null;}

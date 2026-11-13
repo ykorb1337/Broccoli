@@ -387,3 +387,37 @@ dialog[data-kind="export"] .modal-footer { border:0; padding-top:0; padding-bott
 .shot-path-chevron { color:var(--muted); flex:0 0 auto; }
 .shot-path-leaf { flex:0 0 auto; min-width:0; max-width:75%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
 .shot-path-tooltip { position:fixed; z-index:125; max-width:min(620px,calc(var(--ui-width,100vw) - 24px)); padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); font-size:13px; line-height:1.5; overflow-wrap:anywhere; box-shadow:0 4px 18px #0002; pointer-events:none; }
+
+/* Record actions share the compact panels and typography used in settings. */
+.mt-record-menu {
+ position:fixed; inset:auto; margin:0; width:250px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px);
+ padding:6px; overflow:auto; border:1px solid var(--glass-edge,var(--line)); border-radius:12px;
+ background:color-mix(in srgb,var(--panel) 95%,transparent); color:var(--ink); backdrop-filter:blur(24px);
+ box-shadow:0 10px 36px #00000024,0 1px 4px #00000012; font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;
+}
+.mt-record-menu:popover-open { animation:mt-menu-in .12s ease-out; }
+.mt-record-menu::backdrop { background:transparent; }
+.mt-record-menu-title { padding:5px 9px 7px; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mt-record-menu button {
+ display:flex; align-items:center; justify-content:flex-start; gap:10px; width:100%; min-height:29px; padding:5px 9px;
+ border:0; border-radius:6px; background:transparent; box-shadow:none; color:inherit; text-align:left; font:inherit;
+}
+.mt-record-menu button svg { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.mt-record-menu button:hover,.mt-record-menu button:focus-visible { background:var(--accent); color:#fff; outline:0; }
+.mt-record-menu button.destructive { color:var(--danger,#d54541); }
+.mt-record-menu button.destructive:hover,.mt-record-menu button.destructive:focus-visible { background:var(--danger,#d54541); color:#fff; }
+.mt-record-menu-divider { height:1px; margin:5px 5px; background:var(--line); }
+.mt-menu-target { background:var(--field); }
+.mt-record-cell { display:flex; align-items:center; min-width:0; gap:4px; }
+.mt-record-cell .mt-record-title { flex:1; min-width:0; }
+.mt-record-cell .mt-record-more { flex:none; width:24px; min-height:24px; padding:0; border:0; box-shadow:none; background:transparent; color:var(--muted); font-size:17px; opacity:0; }
+.mt-detail-row:hover .mt-record-more,.mt-detail-row:focus-within .mt-record-more,.mt-menu-target .mt-record-more { opacity:1; }
+.mt-record-more:focus-visible { outline:2px solid var(--focus); }
+.mt-record-info { margin:0; }
+.mt-record-info>div { display:grid; grid-template-columns:94px minmax(0,1fr); gap:12px; padding:11px 0; border-bottom:1px solid var(--line); }
+.mt-record-info>div:last-child { border-bottom:0; }
+.mt-record-info dt { color:var(--muted); }
+.mt-record-info dd { margin:0; overflow-wrap:anywhere; user-select:text; }
+.mt-record-delete-name { font-weight:500; overflow-wrap:anywhere; }
+@keyframes mt-menu-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:translateY(0); } }
+@media(prefers-reduced-motion:reduce) { .mt-record-menu:popover-open { animation:none; } }

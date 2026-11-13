@@ -25,6 +25,8 @@ window.HotTurkeyTracking=(()=>{
  const autotags=HotTurkeyAutoTagsUI.create({model,apiCall,load,attr,button,length,time});
  const clock=HotTurkeyClockUI.create({model,apiCall,render,load,attr,button,tagTools:tags,length});
  const media=HotTurkeyMedia.create({model,apiCall,render,load,tagModal,attr,button,select,time,resolveBar:(kind,at)=>dayIndex?.recordAt(kind,at)});
+ const recordMenu=window.HotTurkeyTrackingContext?.create({run:runRecordAction,authorized:()=>visible()&&state.authenticated&&!modal.open});
+ let recordDelete=null;
  function documentIcon(record){
   const resource=HotTurkeyDayData.documentIdentity(record,true);if(resource?.kind!=='file')return '';
   const extension=resource.key.split('/').at(-1).match(/\.([a-z0-9]{1,8})$/i)?.[1].toLowerCase()||'';
@@ -95,6 +97,7 @@ window.HotTurkeyTracking=(()=>{
  }
  function render(){
   if(!visible())return;
+  recordMenu?.close();
   const root=q('#content');root.classList.add('tracking-mode');
   const dayView=['day','untagged'].includes(model.view),d=model.data;if(dayView&&d)computeDay();
   const tabs=`<div class="mt-tabs" role="tablist" aria-label="使用统计视图">${Object.entries({day:'日视图',untagged:'未标记时间',timesheet:'工时表',statistics:'统计',search:'高级搜索'}).map(([value,title])=>button('view',title,`data-value="${value}" role="tab" aria-selected="${model.view===value}"`,model.view===value?'active':'')).join('')}<span class="grow"></span>${button('clock-setup','计时…')}${button('tag-manager','标签管理')}${button('auto-manager','自动标签')}</div>`;
@@ -128,7 +131,7 @@ window.HotTurkeyTracking=(()=>{
   return spacer(window.before)+window.rows.map(v=>{
    const selected=HotTurkeyDayData.duration(HotTurkeyDayData.intersection(rowRanges(v),model.selection)),title=HotTurkeyDayData.title(v);
    const legacy=v.source==='legacy'?`<small title="${v.sample_count>1?'合并 '+v.sample_count+' 条连续采样；':''}旧版汇总未保留窗口标题及完整网址">旧版汇总</small>`:'';
-   return `<tr class="mt-detail-row ${dayIndex.taggedSeconds(v)>=v.seconds-.5?'tagged':''}" data-id="${attr(v.id)}"><td><input type="checkbox" data-mt-check="${attr(v.id)}" aria-label="选择 ${attr(title)}" data-partial="${selected>0&&selected<v.seconds-.001}" ${model.selection.length&&selected>0&&selected>=v.seconds-1e-6?'checked':''}></td><td><button type="button" data-mt="edit-activity" data-id="${attr(v.id)}" class="mt-record-title">${icon(v)}<span title="${attr(title+(v.timeline==='autotags'?' · '+(v.rule_names||[]).join('、')+(inferredLabel(v)?' · '+inferredLabel(v):''):''))}">${attr(title)}</span>${v.highlighted?'<small class="mt-inferred-badge">推断</small>':''}${v.billable?'<small>$</small>':''}${legacy}</button></td><td>${time(v.start)}</td><td>${time(v.end)}</td><td>${length(v.seconds)}</td></tr>`;
+   return `<tr class="mt-detail-row ${dayIndex.taggedSeconds(v)>=v.seconds-.5?'tagged':''}" data-id="${attr(v.id)}"><td><input type="checkbox" data-mt-check="${attr(v.id)}" aria-label="选择 ${attr(title)}" data-partial="${selected>0&&selected<v.seconds-.001}" ${model.selection.length&&selected>0&&selected>=v.seconds-1e-6?'checked':''}></td><td><div class="mt-record-cell"><button type="button" data-mt="edit-activity" data-id="${attr(v.id)}" class="mt-record-title">${icon(v)}<span title="${attr(title+(v.timeline==='autotags'?' · '+(v.rule_names||[]).join('、')+(inferredLabel(v)?' · '+inferredLabel(v):''):''))}">${attr(title)}</span>${v.highlighted?'<small class="mt-inferred-badge">推断</small>':''}${v.billable?'<small>$</small>':''}${legacy}</button>${button('record-menu','⋯',`data-id="${attr(v.id)}" aria-label="${attr(title)}的操作" aria-haspopup="menu"`,'mt-record-more')}</div></td><td>${time(v.start)}</td><td>${time(v.end)}</td><td>${length(v.seconds)}</td></tr>`;
   }).join('')+spacer(window.after)||(rows.length?'':'<tr><td colspan="5" class="mt-empty">这段时间暂无匹配记录</td></tr>');
  }
  function paintDetailWindow(){
@@ -147,7 +150,7 @@ window.HotTurkeyTracking=(()=>{
    return `<section class="mt-summary-section">${values.map((v,i)=>{
     const selected=model.selection.length>0||Boolean(scope),partial=selected&&v.selected_seconds>0&&v.selected_seconds<v.seconds-.001,full=selected&&v.seconds>0&&v.selected_seconds>=v.seconds-.001;
     const attrs=`data-kind="${kind}" data-index="${i}"`,image=v.unknownBrowser?'<span class="activity-icon" data-activity-kind="website" aria-hidden="true"></span>':icon({...v,...v.rows[0],timeline:kind});
-    return `<div class="mt-summary-row ${selected&&!v.selected_seconds?'mt-unselected':''}"><input type="checkbox" data-mt-group="${i}" ${attrs} aria-label="选择 ${attr(v.name)}" data-partial="${partial}" ${full?'checked':''}><button data-mt="group" ${attrs} class="mt-group-name" title="${v.unknownBrowser?'旧版网站统计未记录浏览器归属；新记录按实际应用关联':attr(v.name)}">${image}<span>${attr(v.name)}</span></button><div class="mt-summary-bar"><span style="width:${v.seconds/maximum*100}%;--item-color:${v.color}"></span></div><span class="mt-number">${selected?length(v.selected_seconds)+' / ':''}${length(v.seconds)}</span>${button('group-menu','⋯',attrs+` aria-label="${attr(v.name)}的操作"`,'mt-more')}</div>`;
+    return `<div class="mt-summary-row ${selected&&!v.selected_seconds?'mt-unselected':''}" data-kind="${kind}" data-index="${i}"><input type="checkbox" data-mt-group="${i}" ${attrs} aria-label="选择 ${attr(v.name)}" data-partial="${partial}" ${full?'checked':''}><button data-mt="group" ${attrs} class="mt-group-name" title="${v.unknownBrowser?'旧版网站统计未记录浏览器归属；新记录按实际应用关联':attr(v.name)}">${image}<span>${attr(v.name)}</span></button><div class="mt-summary-bar"><span style="width:${v.seconds/maximum*100}%;--item-color:${v.color}"></span></div><span class="mt-number">${selected?length(v.selected_seconds)+' / ':''}${length(v.seconds)}</span>${button('group-menu','⋯',attrs+` aria-label="${attr(v.name)}的操作"`,'mt-more')}</div>`;
    }).join('')||'<div class="mt-empty">暂无分组</div>'}</section>`;
   }).join('');
   const summaryRanges=HotTurkeyDayData.union(dayIndex.summaries(model.summaryKind,[],null,null).flatMap(v=>v.ranges)),summaryTotal=HotTurkeyDayData.duration(summaryRanges),summarySelected=HotTurkeyDayData.duration(HotTurkeyDayData.intersection(summaryRanges,model.selection));
@@ -155,6 +158,76 @@ window.HotTurkeyTracking=(()=>{
   return `<div class="mt-data-area"><div class="mt-data-grid" style="--mt-detail-width:${model.detailWidth}%">${summary}<div class="mt-split" role="separator" aria-label="调整汇总与明细宽度" tabindex="0"></div>${details}</div></div>`;
  }
  function selectedGroup(element){return dayIndex.summaries(element.dataset.kind||model.timeline,model.selection,model.appScope,model.query?model.timeline:null)[Number(element.dataset.index??element.dataset.mtGroup)];}
+ function recordContext(element){
+  if(!dayIndex||!['day','untagged'].includes(model.view))return null;
+  const summary=element.closest('.mt-summary-row');
+  if(summary){
+   const group=selectedGroup(summary);
+   return group?{title:group.name,rows:group.rows,ranges:group.ranges,group,day:model.day,kind:summary.dataset.kind,index:summary.dataset.index}:null;
+  }
+  const item=element.closest('.mt-detail-row,.mt-activity');
+  if(!item)return null;
+  const row=item.classList.contains('mt-detail-row')?model.data.details.find(row=>row.id===item.dataset.id):dayIndex.byId.get(item.dataset.id);
+  if(!row)return null;
+  return {title:HotTurkeyDayData.title(row)||row.group_name,rows:row.rows||[row],ranges:rowRanges(row),day:model.day,row};
+ }
+ function showRecordMenu(element,x,y){
+  if(!visible()||!state.authenticated||modal.open)return;
+  const context=recordContext(element);if(!context)return;
+  media.suspend();recordMenu?.show(context,x,y,element.closest('button')||element);
+ }
+ async function runRecordAction(op,context){
+  if(!state.authenticated||!visible()||context.day!==model.day)return;
+  const tools=window.HotTurkeyTrackingContext,target=tools.resource(context),first=context.rows[0];
+  if(op==='open'&&target?.kind==='website'){
+   const bridge=window.webkit?.messageHandlers?.native;
+   if(bridge)bridge.postMessage({op:'google-calendar-detail-link',url:target.value});
+   else window.open(target.value,'_blank','noopener,noreferrer');
+   return;
+  }
+  if(op==='reveal')return apiCall('activities/reveal',{id:first.activity_ids?.[0]||first.original_id||first.id});
+  if(op==='copy-name'||op==='copy-resource'){
+   await HotTurkeyClipboard.write(op==='copy-name'?context.title:target.value,()=>state.authenticated&&visible());toast('已复制');return;
+  }
+  const records=()=>context.rows.map(row=>[new Date(row.start*1000).toLocaleString('zh-CN'),new Date(row.end*1000).toLocaleString('zh-CN'),length(row.end-row.start),row.application||'',row.title||row.group_name||'',row.url||row.document||'']);
+  if(op==='copy-records'){
+   await HotTurkeyClipboard.write([['开始','结束','期间','应用程序','标题','网址或文件路径'],...records()].map(row=>row.map(value=>String(value).replace(/[\t\r\n]/g,' ')).join('\t')).join('\n'),()=>state.authenticated&&visible());toast('已复制记录');return;
+  }
+  if(op==='export'){
+   const csv=[['开始','结束','期间','应用程序','标题','网址或文件路径'],...records()].map(row=>row.map(value=>{const text=String(value);return '"'+(/^[=+\-@\t\r]/.test(text)?"'":'')+text.replace(/"/g,'""')+'"';}).join(',')).join('\r\n');
+   const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='Broccoli-'+context.day+'-records.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
+  }
+  if(op==='details'){
+   const values=[['名称',context.title],['应用程序',[...new Set(context.rows.map(row=>row.application).filter(Boolean))].join('、')],['开始',new Date(context.ranges[0][0]*1000).toLocaleString('zh-CN')],['结束',new Date(context.ranges.at(-1)[1]*1000).toLocaleString('zh-CN')],['使用时长',length(HotTurkeyDayData.duration(context.ranges))],['记录数量',String(tools.records(context).length)],['网址或文件路径',target?.value||first.url||first.document||'']];
+   return openModal('记录详情',`<dl class="mt-record-info">${values.filter(([,value])=>value).map(([label,value])=>`<div><dt>${attr(label)}</dt><dd>${attr(value)}</dd></div>`).join('')}</dl>`,button('close','关闭'),'compact');
+  }
+  if(op==='delete'){
+   recordDelete=context;
+   return openModal('删除记录',`<p class="mt-record-delete-name">${attr(context.title)}</p><p class="sheet-status">删除当前日期内的 ${tools.records(context).length} 条记录，共 ${length(HotTurkeyDayData.duration(context.ranges))}。</p>`,button('close','取消')+button('context-delete-confirm','删除','','danger'),'compact');
+  }
+  if(op==='color')return action('group-color',{dataset:{kind:context.kind,index:context.index}});
+  if(op==='filter'){
+   if(context.group)return chooseGroup({dataset:{kind:context.kind,index:context.index}});
+   model.query=tools.query(context);model.queries[model.timeline]=model.query;model.selection=[];model.appScope=null;return load();
+  }
+  if(op==='edit-tag')return tagModal(first);
+  if(op==='auto-source')return action('edit-activity',{dataset:{id:context.row?.id||first.id}});
+  model.selection=HotTurkeyDayData.union(context.ranges);model.appScope=null;model.selected.clear();
+  if(op==='tag')return tagModal();
+  if(op==='locate'){
+   const start=context.ranges[0][0],end=context.ranges.at(-1)[1],padding=Math.max(60,(end-start)*.08);model.range=constrain(start-padding,end+padding);
+  }
+  return setTimeline(first.timeline);
+ }
+ document.addEventListener('contextmenu',event=>{
+  if(!visible()||modal.open||!recordContext(event.target))return;
+  event.preventDefault();showRecordMenu(event.target,event.clientX,event.clientY);
+ });
+ document.addEventListener('keydown',event=>{
+  if(!visible()||modal.open||!(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey))return;
+  if(!recordContext(event.target))return;
+  event.preventDefault();const rect=event.target.getBoundingClientRect();showRecordMenu(event.target,rect.left,rect.bottom+4);
+ });
  function chooseGroup(element,checked=true,combine=false){
   const group=selectedGroup(element);if(!group)return;
   if(combine){let ranges=group.ranges;if(model.appScope&&group.timeline==='documents')ranges=HotTurkeyDayData.union(group.rows.filter(r=>dayIndex.sameApp(r,model.appScope)).map(r=>[r.start,r.end]));model.selection=checked?HotTurkeyDayData.union([...model.selection,...ranges]):HotTurkeyDayData.without(model.selection,ranges);model.appScope=null;model.selected.clear();localDay(false,!checked);qa('[data-mt-group]').find(v=>v.dataset.kind===element.dataset.kind&&v.dataset.index===element.dataset.index)?.focus();return;}
@@ -273,7 +346,15 @@ window.HotTurkeyTracking=(()=>{
   if(op==='pause')return openModal('记录状态',`${sheetGroup('',Object.entries({resume:'开始记录',manual:'暂停，直到手动恢复','15m':'暂停 15 分钟','1h':'暂停 1 小时',tomorrow:'暂停到明天'}).map(([v,label])=>button('set-pause',label,`data-value="${v}"`,'choice-row')).join(''))}`,button('close','关闭'),'compact');
   if(op==='set-pause'){await apiCall('pause',{mode:element.dataset.value});closeModal();return load();}
   if(op==='group')return chooseGroup(element);
-  if(op==='group-menu'){const group=selectedGroup(element);if(group.unknownBrowser)return openModal(group.name,sheetGroup('','<p class="sheet-status">旧版网站统计只保存了域名和时长，未保留所属浏览器、网页标题或完整网址。新记录会按实际浏览器关联。</p>'),button('close','关闭'),'compact');model.groupEdit=group;return openModal(group.name,`${sheetGroup('',field('分组颜色',`<input id="mt-group-color" type="color" value="${group.color}">`))}`,`${button('close','取消')}${button('save-color','保存','','primary')}`,'compact');}
+  if(op==='group-menu'||op==='record-menu'){const rect=element.getBoundingClientRect();return showRecordMenu(element,rect.right,rect.bottom+4);}
+  if(op==='context-delete-confirm'){
+   if(!recordDelete||recordDelete.day!==model.day||!state.authenticated)throw Error('记录范围已变化，请重新选择');
+   const payload=window.HotTurkeyTrackingContext.records(recordDelete);
+   const control=q('[data-mt=context-delete-confirm]',modal);if(control)control.disabled=true;
+   try{await apiCall('activities/delete',{records:payload});recordDelete=null;closeModal();model.selection=[];model.selected.clear();await load();toast('已删除记录');}
+   finally{if(control?.isConnected)control.disabled=false;}return;
+  }
+  if(op==='group-color'){const group=selectedGroup(element);if(group.unknownBrowser)return openModal(group.name,sheetGroup('','<p class="sheet-status">旧版网站统计只保存了域名和时长，未保留所属浏览器、网页标题或完整网址。新记录会按实际浏览器关联。</p>'),button('close','关闭'),'compact');model.groupEdit=group;return openModal(group.name,`${sheetGroup('',field('分组颜色',`<input id="mt-group-color" type="color" value="${group.color}">`))}`,`${button('close','取消')}${button('save-color','保存','','primary')}`,'compact');}
   if(op==='save-color'){await apiCall('entities/save',{kind:'colors',value:{timeline:model.groupEdit.timeline,group:model.groupEdit.name,color:q('#mt-group-color').value}});closeModal();return load();}
   if(op==='delete'&&model.timeline==='autotags')return autotags.action('auto-manager');
   if(op==='delete')return openModal('删除统计记录',`${sheetGroup('',`<p class="sheet-status">${model.selection.length?'删除所选时间内的数据。':'删除当前日期的数据。'}</p>`+field('范围',select('mt-delete-kind',{selected:names[model.timeline],screenshots:'仅截图',all:'全部记录、标签和截图'},'selected')))}`,`${button('close','取消')}${button('confirm-delete','删除','','danger')}`,'compact');
@@ -307,6 +388,7 @@ window.HotTurkeyTracking=(()=>{
  document.addEventListener('keydown',event=>{if(event.target.id==='mt-find-query'&&event.key==='Enter'&&!event.isComposing){event.preventDefault();find.enter();return;}if(event.target.id==='mt-query'&&event.key==='Enter'&&!event.isComposing){event.preventDefault();applyQuery(event.target);}});
  document.addEventListener('scroll',event=>{const target=event.target;if(target.classList?.contains('mt-summary-scroll')){summaryScroll=target.scrollTop;return;}if(!target.classList?.contains('mt-details-scroll'))return;detailScroll=target.scrollTop;if(detailFrame)return;detailFrame=requestAnimationFrame(()=>{detailFrame=0;paintDetailWindow();});},true);
  document.addEventListener('pointerdown',event=>{
+  if(event.button===2)return;
   const cell=event.target.closest('[data-mt-slot]');if(cell){
    const grid=cell.parentElement;pointer={schedule:grid,add:cell.dataset.selected!=='true',visited:new Set()};
    model.scheduleClickSuppressed=Date.now()+2000;paintScheduleCell(cell);grid.setPointerCapture(event.pointerId);event.preventDefault();return;
@@ -329,7 +411,7 @@ window.HotTurkeyTracking=(()=>{
  document.addEventListener('keydown',event=>{if(!event.target.matches?.('.mt-overview-bar')||!['ArrowLeft','ArrowRight','+','-','=','Home','End'].includes(event.key))return;event.preventDefault();const [a,b]=bounds(),shift=(b-a)*.1;if(['+','='].includes(event.key))zoom(.8);else if(event.key==='-')zoom(1.25);else if(event.key==='Home')model.range=constrain(model.data.since,model.data.since+b-a);else if(event.key==='End')model.range=constrain(dayEnd()-b+a,dayEnd());else model.range=constrain(a+(event.key==='ArrowLeft'?-shift:shift),b+(event.key==='ArrowLeft'?-shift:shift));paintTimeline();q('.mt-overview-bar')?.focus();});
  document.addEventListener('keydown',event=>{if(event.defaultPrevented||!visible())return;if(modal.open&&find?.ownsEditor()&&event.key==='Enter'&&!event.isComposing&&(event.target.id==='mt-tag-text'||event.target.id==='mt-tag-notes'&&(event.ctrlKey||event.metaKey))){event.preventDefault();find.submit().catch(error=>showModalError(error.message));return;}if(modal.open&&timesheet.ownsUsageEditor()&&event.key==='Enter'&&!event.isComposing&&(event.target.id==='mt-tag-text'||event.target.id==='mt-tag-notes'&&(event.ctrlKey||event.metaKey))){event.preventDefault();timesheet.submitUsage().catch(error=>showModalError(error.message));return;}if(modal.open&&clock.owns()&&event.key==='Enter'&&!event.isComposing&&(event.target.id==='mt-tag-text'||event.target.id==='mt-tag-notes'&&(event.ctrlKey||event.metaKey))){event.preventDefault();clock.submit().catch(error=>showModalError(error.message));return;}if(modal.open&&event.key==='Enter'&&!event.isComposing&&(event.target.id==='mt-tag-text'||event.target.id==='mt-tag-notes'&&(event.ctrlKey||event.metaKey))){event.preventDefault();action('save-tag',{}).catch(error=>showModalError(error.message));return;}if(event.target.matches('.mt-split')&&['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();model.detailWidth=Math.max(25,Math.min(75,model.detailWidth+(event.key==='ArrowRight'?5:-5)));event.target.parentElement.style.setProperty('--mt-detail-width',model.detailWidth+'%');return;}if(event.key==='Escape'&&!modal.open){model.selection=[];model.selected.clear();model.appScope=null;localDay();}});
  if(typeof setInterval==='function')setInterval(()=>{if(visible()&&!document.hidden&&!modal.open&&!pointer&&model.data&&['day','untagged'].includes(model.view)&&model.day===localDayKey())paintTimeline();},60000);
- return {available,mount,refresh:load,async openSettings(section='record'){const origin=page,value=await apiCall('settings');if(page!==origin||!state.authenticated)return;model.trackingInfo=value;settingsModal(section);},hidePrivateViews(){model.seq++;model.loading=false;initialLoad=null;model.data=null;model.queries={};model.query='';model.queryError='';model.error='';dayIndex=null;model.appScope=null;detailScroll=0;summaryScroll=0;model.report=null;model.trackingInfo=null;find?.suspend();activityExport?.suspend();clock.suspend();timesheet.suspend();autotags.suspend();media.suspend();if(page==='statistics'&&modal.open&&q('[data-mt]',modal))closeModal();},mediaAction(op){return action(op,{}).catch(error=>{if(modal.open)showModalError(error.message);else toast(error.message);});},mediaClosed:media.closed,dismissScreenshots:media.suspend,export:exportData,cancelModal(){if(clock.phaseDialog()){clock.cancelPhase().catch(error=>toast(error.message));return true;}if(modal.open&&q('[data-mt]',modal)){closeModal();return true;}return false;},get model(){return model;},setView(view){model.view=view;return load();},setDay(day){model.day=day;model.range=null;model.dayKey='';media.resetDay();model.selection=[];return load();}};
+ return {available,mount,refresh:load,async openSettings(section='record'){const origin=page,value=await apiCall('settings');if(page!==origin||!state.authenticated)return;model.trackingInfo=value;settingsModal(section);},hidePrivateViews(){recordMenu?.close();recordDelete=null;model.seq++;model.loading=false;initialLoad=null;model.data=null;model.queries={};model.query='';model.queryError='';model.error='';dayIndex=null;model.appScope=null;detailScroll=0;summaryScroll=0;model.report=null;model.trackingInfo=null;find?.suspend();activityExport?.suspend();clock.suspend();timesheet.suspend();autotags.suspend();media.suspend();if(page==='statistics'&&modal.open&&q('[data-mt]',modal))closeModal();},mediaAction(op){return action(op,{}).catch(error=>{if(modal.open)showModalError(error.message);else toast(error.message);});},mediaClosed:media.closed,dismissScreenshots:media.suspend,export:exportData,cancelModal(){if(clock.phaseDialog()){clock.cancelPhase().catch(error=>toast(error.message));return true;}if(modal.open&&q('[data-mt]',modal)){closeModal();return true;}return false;},get model(){return model;},setView(view){model.view=view;return load();},setDay(day){model.day=day;model.range=null;model.dayKey='';media.resetDay();model.selection=[];return load();}};
 })();
 // A navigation can finish while deferred tracking resources are still loading.
 // Upgrade an already visible statistics page when this entrypoint becomes ready.

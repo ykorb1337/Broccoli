@@ -50,6 +50,12 @@ def dispatch(service,path,method,data,query):
         if path=='timesheet':return tracking.timesheet(get('since'),get('until'),number('depth',30),None if not get('billable') else get('billable')=='true',number('round_minutes',0))
         if path=='entities':return {'items':tracking.entities(get('kind'))}
     if method=='POST':
+        if path=='activities/delete':
+            from .tracking_record_actions import delete_records
+            return delete_records(tracking,data.get('records'))
+        if path=='activities/reveal':
+            from .tracking_record_actions import reveal_record
+            return reveal_record(tracking,data.get('id'))
         if path=='screenshots/directory':return tracking.screenshot_storage.choose(data.get('path'))
         if path=='website-icons':
             from .website_icons import WebsiteIcons

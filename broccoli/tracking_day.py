@@ -15,6 +15,7 @@ def display_runs(records):
             key+=(json.dumps(metadata,sort_keys=True,ensure_ascii=False),)
             if row.get('source')=='legacy' and previous is not None and previous.get('source')=='legacy' and key==identity and previous['end']<=row['start']+1e-6 and row['start']<=previous['end']+1e-6:
                 previous['end']=row['end'];previous['original_end']=row.get('original_end',row['end']);previous['seconds']=previous['end']-previous['start'];previous['sample_count']+=1
+                previous['activity_ids'].append(row['id'])
             else:
-                previous={**row,'sample_count':1};result.append(previous);identity=key
+                previous={**row,'sample_count':1,'activity_ids':[row['id']]};result.append(previous);identity=key
     return sorted(result,key=lambda r:(r['start'],r['end'],r['id']))

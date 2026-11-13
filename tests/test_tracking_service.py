@@ -61,6 +61,19 @@ class TrackingServiceTests(unittest.TestCase):
             self.assertEqual(self.request(path,data)[0],400,path)
         self.session=self.request('auth',{'password':'fixture-password'})[1]['session'];self.assertEqual(self.request('tracking/settings')[0],200)
     def test_token_required_for_screenshots(self):self.assertEqual(self.request('tracking/screenshots/image?id='+'a'*32,token=False)[0],401)
+    def test_record_context_routes_are_authenticated_and_identity_scoped(self):
+        first=self.s.tracking.add_activity({'timeline':'documents','start':self.start,'end':self.start+60,'url':'https://example.org/one'})
+        second=self.s.tracking.add_activity({'timeline':'documents','start':self.start,'end':self.start+60,'url':'https://example.org/two'})
+        payload={'records':[{'timeline':'documents','id':first,'ranges':[[self.start,self.start+60]]}]}
+        self.assertEqual(self.request('tracking/activities/delete',payload,token=False)[0],401)
+        self.assertEqual(self.request('tracking/activities/reveal',{'id':first},token=False)[0],401)
+        self.assertEqual(self.request('tracking/activities/delete',payload)[0],200)
+        rows=self.s.tracking.activities(self.start,self.end,_derived=False)
+        self.assertEqual([row['id'] for row in rows],[second])
+        self.request('settings',{'password':'fixture-password'})
+        self.assertEqual(self.request('tracking/activities/delete',payload)[0],400)
+        self.assertEqual(self.request('tracking/activities/reveal',{'id':second})[0],400)
+        self.assertEqual(len(self.s.tracking.activities(self.start,self.end,_derived=False)),1)
     def test_autotags_real_http_preview_past_recalculation_and_conversion(self):
         self.s.tracking.add_activity({'start':self.start,'end':self.start+100,'timeline':'applications','application':'Editor','title':'Draft','group_name':'Editor'})
         value={'tags':['Client','{{title}}'],'notes':'From {{group}}','conditions':[{'field':'application','value':'Editor'}]}
